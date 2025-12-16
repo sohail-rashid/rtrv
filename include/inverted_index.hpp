@@ -59,6 +59,8 @@ public:
     void clear();
     
 private:
+    friend class Persistence;
+    
     std::unordered_map<std::string, std::vector<Posting>> index_;
     mutable std::shared_mutex mutex_;  // Thread safety
 };
