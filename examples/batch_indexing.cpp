@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <sstream>
 
 using namespace search_engine;
 
@@ -31,8 +32,35 @@ int main(int argc, char* argv[]) {
     
     auto start = std::chrono::high_resolution_clock::now();
     
-    // TODO: Read and index documents
+    // Read and index documents
+    // Expected format: doc_id|content (one per line)
     size_t count = 0;
+    std::string line;
+    
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        
+        // Parse line: doc_id|content
+        size_t pos = line.find('|');
+        if (pos != std::string::npos) {
+            std::string id_str = line.substr(0, pos);
+            std::string content = line.substr(pos + 1);
+            
+            uint64_t doc_id = std::stoull(id_str);
+            Document doc{doc_id, content};
+            engine.indexDocument(doc);
+            count++;
+            
+            // Progress indicator every 100 documents
+            if (count % 100 == 0) {
+                std::cout << "  Indexed " << count << " documents...\r" << std::flush;
+            }
+        }
+    }
+    
+    if (count >= 100) {
+        std::cout << std::endl;  // New line after progress indicator
+    }
     
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -48,6 +76,15 @@ int main(int argc, char* argv[]) {
     std::cout << "  Total documents: " << stats.total_documents << "\n";
     std::cout << "  Total terms: " << stats.total_terms << "\n";
     std::cout << "  Avg doc length: " << stats.avg_doc_length << "\n";
+    
+    // Save snapshot
+    std::string snapshot_file = "index_snapshot.bin";
+    std::cout << "\nSaving snapshot to " << snapshot_file << "...\n";
+    if (engine.saveSnapshot(snapshot_file)) {
+        std::cout << "Snapshot saved successfully.\n";
+    } else {
+        std::cerr << "Error: Failed to save snapshot.\n";
+    }
     
     return 0;
 }
