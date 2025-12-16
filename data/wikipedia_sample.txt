@@ -1,0 +1,10 @@
+1|Computer science is the study of computation, information, and automation. It encompasses the theory, design, development, and application of computer software and hardware systems.
+2|Artificial intelligence is intelligence demonstrated by machines, as opposed to natural intelligence displayed by animals including humans. AI research has been defined as the field of study of intelligent agents.
+3|Machine learning is a branch of artificial intelligence and computer science which focuses on the use of data and algorithms to imitate the way that humans learn, gradually improving accuracy.
+4|Data structures are specialized formats for organizing, processing, retrieving and storing data. Different kinds of data structures are suited to different applications.
+5|An algorithm is a finite sequence of rigorous instructions, typically used to solve a class of specific problems or to perform a computation.
+6|Software engineering is the systematic application of engineering approaches to the development of software. It is a computing discipline.
+7|Database management systems are software systems used to store, retrieve, and run queries on data. A DBMS serves as an interface between an end user and a database.
+8|Operating systems manage computer hardware and software resources and provide common services for computer programs. Common examples include Linux, Windows, and macOS.
+9|Networking involves the practice of connecting computers and other devices together to share resources. The Internet is the largest computer network in the world.
+10|Cybersecurity is the practice of protecting systems, networks, and programs from digital attacks. These attacks usually aim to access, change, or destroy sensitive information.
