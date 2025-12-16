@@ -1,0 +1,35 @@
+# Build directory (generated)
+build/
+cmake-build-*/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled files
+*.o
+*.a
+*.so
+*.dylib
+*.exe
+
+# Test outputs
+Testing/
+test_results/
+
+# Benchmark outputs
+benchmark_results/
+
+# Snapshots
+*.snapshot
+*.bin
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
