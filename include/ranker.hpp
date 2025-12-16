@@ -68,4 +68,4 @@ private:
     double b_;   // Length normalization parameter
 };
 
-} // namespace search_engine
+}
