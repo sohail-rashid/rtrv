@@ -63,4 +63,4 @@ private:
     mutable std::shared_mutex mutex_;  // Thread safety
 };
 
-} // namespace search_engine
+} 
