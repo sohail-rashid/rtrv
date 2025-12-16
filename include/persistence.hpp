@@ -15,6 +15,13 @@ struct SnapshotHeader {
     uint64_t num_documents;
     uint64_t num_terms;
 };
+// Format:
+// [Header]                    // SnapshotHeader (magic, version, num_documents, num_terms)
+// [next_doc_id]              // uint64_t for ID generation
+// [Document1]...[DocumentN]  // Each document: doc_id, content_len, content, term_count, metadata
+// [num_index_terms]          // Size of index
+// [Term1][PostingList1]...   // Each term: term_len, term, postings_count, then postings
+
 
 /**
  * Handles persistence of search engine state
@@ -32,4 +39,4 @@ public:
     static bool load(SearchEngine& engine, const std::string& filepath);
 };
 
-} // namespace search_engine
+}

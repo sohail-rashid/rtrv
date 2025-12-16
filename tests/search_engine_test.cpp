@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include "search_engine.hpp"
+#include <cstdio>
+#include <fstream>
 
 using namespace search_engine;
 
@@ -184,3 +186,156 @@ TEST_F(SearchEngineTest, Statistics) {
     EXPECT_GE(stats2.avg_doc_length, 1.0);
     EXPECT_LE(stats2.avg_doc_length, 5.0);
 }
+
+TEST_F(SearchEngineTest, SaveSnapshot) {
+    // Index some documents
+    Document doc1{0, "first document content"};
+    Document doc2{0, "second document content"};
+    doc1.metadata["author"] = "Alice";
+    doc2.metadata["author"] = "Bob";
+    
+    engine.indexDocument(doc1);
+    engine.indexDocument(doc2);
+    
+    // Save snapshot
+    std::string filepath = "/tmp/test_save_snapshot.bin";
+    bool saved = engine.saveSnapshot(filepath);
+    EXPECT_TRUE(saved);
+    
+    // Verify file exists (attempt to open for reading)
+    std::ifstream check(filepath, std::ios::binary);
+    EXPECT_TRUE(check.good());
+    check.close();
+    
+    // Clean up
+    std::remove(filepath.c_str());
+}
+
+TEST_F(SearchEngineTest, LoadSnapshot) {
+    // Index documents
+    Document doc1{0, "test document one"};
+    Document doc2{0, "test document two"};
+    
+    engine.indexDocument(doc1);
+    engine.indexDocument(doc2);
+    
+    // Save snapshot
+    std::string filepath = "/tmp/test_load_snapshot.bin";
+    engine.saveSnapshot(filepath);
+    
+    // Create new engine and load
+    SearchEngine engine2;
+    bool loaded = engine2.loadSnapshot(filepath);
+    EXPECT_TRUE(loaded);
+    
+    // Verify documents were loaded
+    auto stats = engine2.getStats();
+    EXPECT_EQ(stats.total_documents, 2);
+    
+    // Verify search works
+    auto results = engine2.search("document");
+    EXPECT_EQ(results.size(), 2);
+    
+    // Clean up
+    std::remove(filepath.c_str());
+}
+
+TEST_F(SearchEngineTest, SnapshotPreservesSearchResults) {
+    // Index documents with specific content
+    Document doc1{0, "machine learning algorithms"};
+    Document doc2{0, "deep learning neural networks"};
+    Document doc3{0, "data structures and algorithms"};
+    
+    engine.indexDocument(doc1);
+    engine.indexDocument(doc2);
+    engine.indexDocument(doc3);
+    
+    // Perform search before save
+    auto results_before = engine.search("algorithms");
+    ASSERT_FALSE(results_before.empty());
+    
+    // Save and load
+    std::string filepath = "/tmp/test_snapshot_search.bin";
+    engine.saveSnapshot(filepath);
+    
+    SearchEngine engine2;
+    engine2.loadSnapshot(filepath);
+    
+    // Perform same search after load
+    auto results_after = engine2.search("algorithms");
+    
+    // Verify results match
+    EXPECT_EQ(results_after.size(), results_before.size());
+    for (size_t i = 0; i < results_after.size(); ++i) {
+        EXPECT_EQ(results_after[i].document.id, results_before[i].document.id);
+        EXPECT_EQ(results_after[i].document.content, results_before[i].document.content);
+        EXPECT_DOUBLE_EQ(results_after[i].score, results_before[i].score);
+    }
+    
+    // Clean up
+    std::remove(filepath.c_str());
+}
+
+TEST_F(SearchEngineTest, SnapshotPreservesMetadata) {
+    // Index document with metadata
+    Document doc{0, "document with metadata"};
+    doc.metadata["title"] = "Test Document";
+    doc.metadata["author"] = "John Doe";
+    doc.metadata["year"] = "2025";
+    
+    uint64_t doc_id = engine.indexDocument(doc);
+    
+    // Save and load
+    std::string filepath = "/tmp/test_snapshot_metadata.bin";
+    engine.saveSnapshot(filepath);
+    
+    SearchEngine engine2;
+    engine2.loadSnapshot(filepath);
+    
+    // Search and verify metadata
+    auto results = engine2.search("metadata");
+    ASSERT_EQ(results.size(), 1);
+    EXPECT_EQ(results[0].document.id, doc_id);
+    EXPECT_EQ(results[0].document.metadata.at("title"), "Test Document");
+    EXPECT_EQ(results[0].document.metadata.at("author"), "John Doe");
+    EXPECT_EQ(results[0].document.metadata.at("year"), "2025");
+    
+    // Clean up
+    std::remove(filepath.c_str());
+}
+
+TEST_F(SearchEngineTest, LoadNonExistentFile) {
+    SearchEngine engine2;
+    bool loaded = engine2.loadSnapshot("/tmp/nonexistent_file.bin");
+    EXPECT_FALSE(loaded);
+}
+
+TEST_F(SearchEngineTest, SaveToInvalidPath) {
+    Document doc{0, "test"};
+    engine.indexDocument(doc);
+    
+    // Try to save to invalid path
+    bool saved = engine.saveSnapshot("/invalid/path/that/does/not/exist/snapshot.bin");
+    EXPECT_FALSE(saved);
+}
+
+TEST_F(SearchEngineTest, SnapshotEmptyEngine) {
+    // Save empty engine
+    std::string filepath = "/tmp/test_empty_snapshot.bin";
+    bool saved = engine.saveSnapshot(filepath);
+    EXPECT_TRUE(saved);
+    
+    // Load into another engine
+    SearchEngine engine2;
+    bool loaded = engine2.loadSnapshot(filepath);
+    EXPECT_TRUE(loaded);
+    
+    // Verify it's empty
+    auto stats = engine2.getStats();
+    EXPECT_EQ(stats.total_documents, 0);
+    EXPECT_EQ(stats.total_terms, 0);
+    
+    // Clean up
+    std::remove(filepath.c_str());
+}
+

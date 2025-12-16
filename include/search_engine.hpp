@@ -70,6 +70,8 @@ public:
     void setTokenizer(std::unique_ptr<Tokenizer> tokenizer);
     
 private:
+    friend class Persistence;
+    
     std::unique_ptr<Tokenizer> tokenizer_;
     std::unique_ptr<InvertedIndex> index_;
     std::unique_ptr<Ranker> ranker_;

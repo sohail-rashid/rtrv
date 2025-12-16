@@ -1,4 +1,5 @@
 #include "search_engine.hpp"
+#include "persistence.hpp"
 
 namespace search_engine {
 
@@ -183,13 +184,11 @@ IndexStatistics SearchEngine::getStats() const {
 }
 
 bool SearchEngine::saveSnapshot(const std::string& filepath) {
-    // TODO: Implement snapshot saving
-    return false;
+    return Persistence::save(*this, filepath);
 }
 
 bool SearchEngine::loadSnapshot(const std::string& filepath) {
-    // TODO: Implement snapshot loading
-    return false;
+    return Persistence::load(*this, filepath);
 }
 
 void SearchEngine::setRanker(std::unique_ptr<Ranker> ranker) {
