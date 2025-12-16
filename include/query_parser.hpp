@@ -47,4 +47,4 @@ public:
     std::vector<std::string> extractTerms(const std::string& query_string);
 };
 
-} // namespace search_engine
+} 
