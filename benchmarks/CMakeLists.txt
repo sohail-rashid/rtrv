@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
 
 # Google Benchmark
-add_subdirectory(${CMAKE_SOURCE_DIR}/external/benchmark EXCLUDE_FROM_ALL)
+if(EXISTS ${CMAKE_SOURCE_DIR}/external/benchmark)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/external/benchmark ${CMAKE_BINARY_DIR}/benchmark EXCLUDE_FROM_ALL)
+else()
+    message(WARNING "Google Benchmark not found. Skipping benchmarks. To enable, run: git submodule add https://github.com/google/benchmark.git external/benchmark")
+    return()
+endif()
 
 # Benchmark executables
 add_executable(indexing_benchmark indexing_benchmark.cpp)
