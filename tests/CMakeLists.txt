@@ -15,6 +15,7 @@ add_executable(search_engine_tests
     ranker_test.cpp
     query_parser_test.cpp
     search_engine_test.cpp
+    integration_test.cpp
 )
 
 target_link_libraries(search_engine_tests
