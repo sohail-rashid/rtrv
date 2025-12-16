@@ -1,6 +1,7 @@
 # Build directory (generated)
 build/
 cmake-build-*/
+local_*
 
 # IDE files
 .vscode/

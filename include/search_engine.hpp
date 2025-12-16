@@ -78,4 +78,4 @@ private:
     uint64_t next_doc_id_;
 };
 
-} // namespace search_engine
+} 
