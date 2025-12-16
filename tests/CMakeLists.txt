@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
 
 # Google Test
-add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest EXCLUDE_FROM_ALL)
+if(EXISTS ${CMAKE_SOURCE_DIR}/external/googletest)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest ${CMAKE_BINARY_DIR}/googletest EXCLUDE_FROM_ALL)
+else()
+    message(WARNING "Google Test not found. Please run: git submodule add https://github.com/google/googletest.git external/googletest")
+    return()
+endif()
 
 # Test executable
 add_executable(search_engine_tests

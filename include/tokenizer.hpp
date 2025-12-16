@@ -49,4 +49,4 @@ private:
     StemmerType stemmer_type_;
 };
 
-} // namespace search_engine
+} 
