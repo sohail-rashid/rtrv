@@ -32,4 +32,4 @@ add_subdirectory(tests)
 add_subdirectory(benchmarks)
 
 # Examples
-add_subdirectory(examples)
+add_subdirectory(server)
