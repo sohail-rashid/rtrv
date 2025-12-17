@@ -33,7 +33,7 @@ ctest --output-on-failure
 ./benchmarks/search_benchmark
 
 # Run demo server
-./examples/rest_server
+./server/rest_server
 ```
 
 ## Quick Example

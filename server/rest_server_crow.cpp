@@ -1,0 +1,317 @@
+ #include "search_engine.hpp"
+#include <crow.h>
+#include <iostream>
+#include <string>
+#include <sstream>
+#include <iomanip>
+#include <fstream>
+#include <memory>
+#include <chrono>
+#include <ctime>
+
+using namespace search_engine;
+
+// Global search engine instance
+std::shared_ptr<SearchEngine> g_engine;
+
+// Get current timestamp as string
+std::string getTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+    
+    std::ostringstream oss;
+    oss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S")
+        << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    return oss.str();
+}
+
+int main(int argc, char* argv[]) {
+    // Parse command line arguments
+    int port = 8080;
+    if (argc > 1) {
+        port = std::atoi(argv[1]);
+    }
+    
+    // Create search engine instance
+    g_engine = std::make_shared<SearchEngine>();
+    
+    // Load sample data from file
+    std::cout << "Loading sample data from data/wikipedia_sample.txt...\n";
+    std::ifstream file("../data/wikipedia_sample.txt");
+    if (file.is_open()) {
+        std::string line;
+        int count = 0;
+        while (std::getline(file, line)) {
+            size_t delimiter_pos = line.find('|');
+            if (delimiter_pos != std::string::npos) {
+                uint64_t id = std::stoull(line.substr(0, delimiter_pos));
+                std::string content = line.substr(delimiter_pos + 1);
+                g_engine->indexDocument(Document(id, content));
+                count++;
+            }
+        }
+        file.close();
+        std::cout << "Loaded " << count << " documents\n";
+    } else {
+        std::cerr << "Warning: Could not open data/wikipedia_sample.txt, starting with empty index\n";
+    }
+    
+    // Create Crow app
+    crow::SimpleApp app;
+    
+    // Middleware for CORS
+    CROW_ROUTE(app, "/")
+        .methods("OPTIONS"_method)
+        ([](const crow::request&) {
+            crow::response res(200);
+            res.add_header("Access-Control-Allow-Origin", "*");
+            res.add_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+            res.add_header("Access-Control-Allow-Headers", "Content-Type");
+            return res;
+        });
+    
+    // Search endpoint - GET /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>
+    CROW_ROUTE(app, "/search")
+    ([](const crow::request& req) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] GET /search" << std::endl;
+        
+        auto q = req.url_params.get("q");
+        if (!q) {
+            std::cout << "⚠️ [" << getTimestamp() << "] [" << client_ip << "] GET /search → 400" << std::endl;
+            crow::response res(400, R"({"error": "Missing query parameter"})");
+            res.add_header("Content-Type", "application/json");
+            res.add_header("Access-Control-Allow-Origin", "*");
+            return res;
+        }
+        
+        SearchOptions options;
+        
+        auto algorithm = req.url_params.get("algorithm");
+        if (algorithm && std::string(algorithm) == "tfidf") {
+            options.algorithm = SearchOptions::TF_IDF;
+        }
+        
+        auto max_results = req.url_params.get("max_results");
+        if (max_results) {
+            options.max_results = std::stoi(std::string(max_results));
+        }
+        
+        auto results = g_engine->search(q, options);
+        
+        // Build JSON response
+        crow::json::wvalue response;
+        response["total_results"] = results.size();
+        
+        std::vector<crow::json::wvalue> result_array;
+        for (const auto& result : results) {
+            crow::json::wvalue item;
+            item["score"] = result.score;
+            item["document"]["id"] = result.document.id;
+            item["document"]["content"] = result.document.content;
+            result_array.push_back(std::move(item));
+        }
+        response["results"] = std::move(result_array);
+        
+        std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] GET /search → 200" << std::endl;
+        crow::response res(200, response);
+        res.add_header("Access-Control-Allow-Origin", "*");
+        return res;
+    });
+    
+    // Stats endpoint - GET /stats
+    CROW_ROUTE(app, "/stats")
+    ([](const crow::request& req) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] GET /stats" << std::endl;
+        
+        auto stats = g_engine->getStats();
+        
+        crow::json::wvalue response;
+        response["total_documents"] = stats.total_documents;
+        response["total_terms"] = stats.total_terms;
+        response["avg_doc_length"] = stats.avg_doc_length;
+        
+        std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] GET /stats → 200" << std::endl;
+        crow::response res(200, response);
+        res.add_header("Access-Control-Allow-Origin", "*");
+        return res;
+    });
+    
+    // Index endpoint - POST /index with body: {"id": number, "content": "text"}
+    CROW_ROUTE(app, "/index").methods("POST"_method)
+    ([](const crow::request& req) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] POST /index" << std::endl;
+        
+        try {
+            auto body = crow::json::load(req.body);
+            if (!body) {
+                std::cout << "⚠️ [" << getTimestamp() << "] [" << client_ip << "] POST /index → 400" << std::endl;
+                crow::response res(400, R"({"error": "Invalid JSON body"})");
+                res.add_header("Content-Type", "application/json");
+                res.add_header("Access-Control-Allow-Origin", "*");
+                return res;
+            }
+            
+            if (!body.has("id") || !body.has("content")) {
+                std::cout << "⚠️ [" << getTimestamp() << "] [" << client_ip << "] POST /index → 400" << std::endl;
+                crow::response res(400, R"({"error": "Missing id or content field"})");
+                res.add_header("Content-Type", "application/json");
+                res.add_header("Access-Control-Allow-Origin", "*");
+                return res;
+            }
+            
+            uint64_t id = body["id"].u();
+            std::string content = body["content"].s();
+            
+            Document doc(id, content);
+            g_engine->indexDocument(doc);
+            
+            crow::json::wvalue response;
+            response["success"] = true;
+            response["doc_id"] = id;
+            
+            std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] POST /index → 200" << std::endl;
+            crow::response res(200, response);
+            res.add_header("Access-Control-Allow-Origin", "*");
+            return res;
+            
+        } catch (const std::exception& e) {
+            std::cout << "❌ [" << getTimestamp() << "] [" << client_ip << "] POST /index → 500" << std::endl;
+            crow::json::wvalue error;
+            error["error"] = std::string("Server error: ") + e.what();
+            crow::response res(500, error);
+            res.add_header("Access-Control-Allow-Origin", "*");
+            return res;
+        }
+    });
+    
+    // Delete endpoint - DELETE /delete/<id>
+    CROW_ROUTE(app, "/delete/<uint>").methods("DELETE"_method)
+    ([](const crow::request& req, uint64_t id) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] DELETE /delete/" << id << std::endl;
+        
+        bool success = g_engine->deleteDocument(id);
+        
+        crow::json::wvalue response;
+        response["success"] = success;
+        response["doc_id"] = id;
+        
+        std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] DELETE /delete/" << id << " → 200" << std::endl;
+        crow::response res(200, response);
+        res.add_header("Access-Control-Allow-Origin", "*");
+        return res;
+    });
+    
+    // Save endpoint - POST /save with body: {"filename": "path"}
+    CROW_ROUTE(app, "/save").methods("POST"_method)
+    ([](const crow::request& req) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] POST /save" << std::endl;
+        
+        try {
+            auto body = crow::json::load(req.body);
+            if (!body) {
+                std::cout << "⚠️ [" << getTimestamp() << "] [" << client_ip << "] POST /save → 400" << std::endl;
+                crow::response res(400, R"({"error": "Invalid JSON body"})");
+                res.add_header("Content-Type", "application/json");
+                res.add_header("Access-Control-Allow-Origin", "*");
+                return res;
+            }
+            
+            if (!body.has("filename")) {
+                std::cout << "⚠️ [" << getTimestamp() << "] [" << client_ip << "] POST /save → 400" << std::endl;
+                crow::response res(400, R"({"error": "Missing filename field"})");
+                res.add_header("Content-Type", "application/json");
+                res.add_header("Access-Control-Allow-Origin", "*");
+                return res;
+            }
+            
+            std::string filename = body["filename"].s();
+            bool success = g_engine->saveSnapshot(filename);
+            
+            crow::json::wvalue response;
+            response["success"] = success;
+            response["filename"] = filename;
+            
+            std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] POST /save → 200" << std::endl;
+            crow::response res(200, response);
+            res.add_header("Access-Control-Allow-Origin", "*");
+            return res;
+            
+        } catch (const std::exception& e) {
+            std::cout << "❌ [" << getTimestamp() << "] [" << client_ip << "] POST /save → 500" << std::endl;
+            crow::json::wvalue error;
+            error["error"] = std::string("Server error: ") + e.what();
+            crow::response res(500, error);
+            res.add_header("Access-Control-Allow-Origin", "*");
+            return res;
+        }
+    });
+    
+    // Load endpoint - POST /load with body: {"filename": "path"}
+    CROW_ROUTE(app, "/load").methods("POST"_method)
+    ([](const crow::request& req) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] POST /load" << std::endl;
+        
+        try {
+            auto body = crow::json::load(req.body);
+            if (!body) {
+                std::cout << "⚠️ [" << getTimestamp() << "] [" << client_ip << "] POST /load → 400" << std::endl;
+                crow::response res(400, R"({"error": "Invalid JSON body"})");
+                res.add_header("Content-Type", "application/json");
+                res.add_header("Access-Control-Allow-Origin", "*");
+                return res;
+            }
+            
+            if (!body.has("filename")) {
+                std::cout << "⚠️ [" << getTimestamp() << "] [" << client_ip << "] POST /load → 400" << std::endl;
+                crow::response res(400, R"({"error": "Missing filename field"})");
+                res.add_header("Content-Type", "application/json");
+                res.add_header("Access-Control-Allow-Origin", "*");
+                return res;
+            }
+            
+            std::string filename = body["filename"].s();
+            bool success = g_engine->loadSnapshot(filename);
+            
+            crow::json::wvalue response;
+            response["success"] = success;
+            response["filename"] = filename;
+            
+            std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] POST /load → 200" << std::endl;
+            crow::response res(200, response);
+            res.add_header("Access-Control-Allow-Origin", "*");
+            return res;
+            
+        } catch (const std::exception& e) {
+            std::cout << "❌ [" << getTimestamp() << "] [" << client_ip << "] POST /load → 500" << std::endl;
+            crow::json::wvalue error;
+            error["error"] = std::string("Server error: ") + e.what();
+            crow::response res(500, error);
+            res.add_header("Access-Control-Allow-Origin", "*");
+            return res;
+        }
+    });
+    
+    std::cout << "=== Search Engine REST Server (Crow) ===\n";
+    std::cout << "Server listening on http://localhost:" << port << "\n";
+    std::cout << "Endpoints:\n";
+    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>\n";
+    std::cout << "  GET    /stats\n";
+    std::cout << "  POST   /index - body: {\"id\": number, \"content\": \"text\"}\n";
+    std::cout << "  DELETE /delete/<id>\n";
+    std::cout << "  POST   /save - body: {\"filename\": \"path\"}\n";
+    std::cout << "  POST   /load - body: {\"filename\": \"path\"}\n";
+    std::cout << "Press Ctrl+C to stop\n\n";
+    
+    // Run the server
+    app.port(port).multithreaded().run();
+    
+    return 0;
+}
