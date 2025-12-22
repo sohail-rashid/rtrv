@@ -11,7 +11,7 @@ protected:
 
 TEST_F(RankerTest, TfIdfBasicScoring) {
     // Create test document
-    Document doc(1, "the quick brown fox jumps over the lazy dog");
+    Document doc(1, {{"content", "the quick brown fox jumps over the lazy dog"}});
     doc.term_count = 9;
     
     // Create query
@@ -45,7 +45,7 @@ TEST_F(RankerTest, TfIdfBasicScoring) {
 
 TEST_F(RankerTest, Bm25BasicScoring) {
     // Create test document
-    Document doc(1, "the quick brown fox jumps over the lazy dog");
+    Document doc(1, {{"content", "the quick brown fox jumps over the lazy dog"}});
     doc.term_count = 9;
     
     // Create query
@@ -72,7 +72,7 @@ TEST_F(RankerTest, Bm25BasicScoring) {
 
 TEST_F(RankerTest, EmptyDocument) {
     // Create empty document
-    Document doc(1, "");
+    Document doc(1, {{"content", ""}});
     doc.term_count = 0;
     
     // Create query
@@ -95,7 +95,7 @@ TEST_F(RankerTest, EmptyDocument) {
 
 TEST_F(RankerTest, RareTerms) {
     // Create document with rare term
-    Document doc(1, "unique specialized terminology");
+    Document doc(1, {{"content", "unique specialized terminology"}});
     doc.term_count = 3;
     
     // Create query with rare term
@@ -113,7 +113,7 @@ TEST_F(RankerTest, RareTerms) {
     EXPECT_GT(score, 0.0);
     
     // Compare with common term
-    Document doc2(2, "the common word");
+    Document doc2(2, {{"content", "the common word"}});
     doc2.term_count = 3;
     Query query2;
     query2.terms = {"common"};
@@ -127,7 +127,7 @@ TEST_F(RankerTest, RareTerms) {
 
 TEST_F(RankerTest, CommonTerms) {
     // Create document
-    Document doc(1, "the quick brown fox");
+    Document doc(1, {{"content", "the quick brown fox"}});
     doc.term_count = 4;
     
     // Create query with very common term
@@ -150,10 +150,10 @@ TEST_F(RankerTest, CommonTerms) {
 
 TEST_F(RankerTest, Bm25LengthNormalization) {
     // Create two documents with same term but different lengths
-    Document short_doc(1, "fox");
+    Document short_doc(1, {{"content", "fox"}});
     short_doc.term_count = 1;
     
-    Document long_doc(2, "the quick brown fox jumps over the lazy dog and many other words to make it longer");
+    Document long_doc(2, {{"content", "the quick brown fox jumps over the lazy dog and many other words to make it longer"}});
     long_doc.term_count = 15;
     
     // Create query

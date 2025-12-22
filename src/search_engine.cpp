@@ -22,7 +22,7 @@ uint64_t SearchEngine::indexDocument(const Document& doc) {
     indexed_doc.id = doc_id;
     
     // Tokenize document content
-    auto tokens = tokenizer_->tokenize(doc.content);
+    auto tokens = tokenizer_->tokenize(doc.getAllText());
     indexed_doc.term_count = tokens.size();
     
     // Add terms to inverted index with positions

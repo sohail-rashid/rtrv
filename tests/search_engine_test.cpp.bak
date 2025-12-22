@@ -12,9 +12,9 @@ protected:
 
 TEST_F(SearchEngineTest, IndexAndSearch) {
     // Index some documents
-    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "the quick fox"}}};
-    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "the lazy dog"}}};
-    Document doc3{0, std::unordered_map<std::string, std::string>{{"content", "quick brown dog"}}};
+    Document doc1{0, {{"content", "the quick fox"}}};
+    Document doc2{0, {{"content", "the lazy dog"}}};
+    Document doc3{0, {{"content", "quick brown dog"}}};
     
     uint64_t id1 = engine.indexDocument(doc1);
     uint64_t id2 = engine.indexDocument(doc2);
@@ -34,7 +34,7 @@ TEST_F(SearchEngineTest, IndexAndSearch) {
 
 TEST_F(SearchEngineTest, UpdateDocument) {
     // Index a document
-    Document doc{0, std::unordered_map<std::string, std::string>{{"content", "original content"}}};
+    Document doc{0, {{"content", "original content"}}};
     uint64_t id = engine.indexDocument(doc);
     
     // Search for original content
@@ -63,8 +63,8 @@ TEST_F(SearchEngineTest, UpdateDocument) {
 
 TEST_F(SearchEngineTest, DeleteDocument) {
     // Index documents
-    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "first document"}}};
-    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "second document"}}};
+    Document doc1{0, {{"content", "first document"}}};
+    Document doc2{0, {{"content", "second document"}}};
     
     uint64_t id1 = engine.indexDocument(doc1);
     uint64_t id2 = engine.indexDocument(doc2);
@@ -103,8 +103,8 @@ TEST_F(SearchEngineTest, EmptySearch) {
 
 TEST_F(SearchEngineTest, NoResults) {
     // Index documents
-    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "cats and dogs"}}};
-    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "birds and fish"}}};
+    Document doc1{0, {{"content", "cats and dogs"}}};
+    Document doc2{0, {{"content", "birds and fish"}}};
     
     engine.indexDocument(doc1);
     engine.indexDocument(doc2);
@@ -116,9 +116,9 @@ TEST_F(SearchEngineTest, NoResults) {
 
 TEST_F(SearchEngineTest, RankingOrder) {
     // Index documents with varying relevance
-    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "machine learning algorithms"}}};
-    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "algorithms and data structures"}}};
-    Document doc3{0, std::unordered_map<std::string, std::string>{{"content", "machine learning deep learning neural networks"}}};
+    Document doc1{0, {{"content", "machine learning algorithms"}}};
+    Document doc2{0, {{"content", "algorithms and data structures"}}};
+    Document doc3{0, {{"content", "machine learning deep learning neural networks"}}};
     
     uint64_t id1 = engine.indexDocument(doc1);
     engine.indexDocument(doc2);
@@ -142,7 +142,7 @@ TEST_F(SearchEngineTest, RankingOrder) {
 TEST_F(SearchEngineTest, MaxResults) {
     // Index multiple documents
     for (int i = 0; i < 10; ++i) {
-        Document doc{0, std::unordered_map<std::string, std::string>{{"content", "test document number " + std::to_string(i)}}};
+        Document doc{0, {{"content", "test document number " + std::to_string(i)}}};
         engine.indexDocument(doc);
     }
     
@@ -170,8 +170,8 @@ TEST_F(SearchEngineTest, Statistics) {
     EXPECT_EQ(stats1.avg_doc_length, 0.0);
     
     // Index documents
-    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "short"}}};
-    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "this is a longer document"}}};
+    Document doc1{0, {{"content", "short"}}};
+    Document doc2{0, {{"content", "this is a longer document"}}};
     
     engine.indexDocument(doc1);
     engine.indexDocument(doc2);
@@ -211,8 +211,8 @@ TEST_F(SearchEngineTest, SaveSnapshot) {
 
 TEST_F(SearchEngineTest, LoadSnapshot) {
     // Index documents
-    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "test document one"}}};
-    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "test document two"}}};
+    Document doc1{0, {{"content", "test document one"}}};
+    Document doc2{0, {{"content", "test document two"}}};
     
     engine.indexDocument(doc1);
     engine.indexDocument(doc2);
@@ -240,9 +240,9 @@ TEST_F(SearchEngineTest, LoadSnapshot) {
 
 TEST_F(SearchEngineTest, SnapshotPreservesSearchResults) {
     // Index documents with specific content
-    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "machine learning algorithms"}}};
-    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "deep learning neural networks"}}};
-    Document doc3{0, std::unordered_map<std::string, std::string>{{"content", "data structures and algorithms"}}};
+    Document doc1{0, {{"content", "machine learning algorithms"}}};
+    Document doc2{0, {{"content", "deep learning neural networks"}}};
+    Document doc3{0, {{"content", "data structures and algorithms"}}};
     
     engine.indexDocument(doc1);
     engine.indexDocument(doc2);
@@ -306,7 +306,7 @@ TEST_F(SearchEngineTest, LoadNonExistentFile) {
 }
 
 TEST_F(SearchEngineTest, SaveToInvalidPath) {
-    Document doc{0, std::unordered_map<std::string, std::string>{{"content", "test"}}};
+    Document doc{0, {{"content", "test"}}};
     engine.indexDocument(doc);
     
     // Try to save to invalid path

@@ -29,7 +29,7 @@ double TfIdfRanker::score(const Query& query,
         // Get term frequency in document (simplified - should use tokenizer)
         uint32_t tf = 0;
         size_t pos = 0;
-        std::string lower_content = doc.content;
+        std::string lower_content = doc.getAllText();
         std::string lower_term = query_term;
         
         // Simple case-insensitive search
@@ -80,7 +80,7 @@ double Bm25Ranker::score(const Query& query,
         // Get term frequency in document (simplified)
         uint32_t tf = 0;
         size_t pos = 0;
-        std::string lower_content = doc.content;
+        std::string lower_content = doc.getAllText();
         std::string lower_term = query_term;
         
         // Simple case-insensitive search
@@ -105,7 +105,7 @@ double Bm25Ranker::score(const Query& query,
             
             // BM25 term frequency component with length normalization
             // TF_component = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (doc_length / avg_doc_length)))
-            double doc_length = doc.term_count > 0 ? doc.term_count : doc.content.length();
+            double doc_length = doc.term_count > 0 ? doc.term_count : doc.getAllText().length();
             double normalized_length = 1.0 - b_ + b_ * (doc_length / stats.avg_doc_length);
             double tf_component = (tf * (k1_ + 1.0)) / (tf + k1_ * normalized_length);
             
