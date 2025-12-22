@@ -61,7 +61,8 @@ static void BM_ConcurrentSearches(benchmark::State& state) {
     // Index documents
     for (const auto& [title, content] : docs) {
         Document doc;
-        doc.content = title + " " + content;
+        doc.fields["title"] = title;
+        doc.fields["content"] = content;
         engine.indexDocument(doc);
     }
     
@@ -131,7 +132,8 @@ static void BM_ConcurrentUpdates(benchmark::State& state) {
                 for (size_t j = i; j < docs.size(); j += num_threads) {
                     Document doc;
                     doc.id = j;
-                    doc.content = docs[j].first + " " + docs[j].second;
+                    doc.fields["title"] = docs[j].first;
+                    doc.fields["content"] = docs[j].second;
                     engine.indexDocument(doc);
                     operations.fetch_add(1, std::memory_order_relaxed);
                 }

@@ -15,11 +15,13 @@ namespace search_engine {
  * Search options
  */
 struct SearchOptions {
-    enum RankingAlgorithm { TF_IDF, BM25 };
-    
-    RankingAlgorithm algorithm = BM25;
+    std::string ranker_name = "";  // Empty = use default ranker
     size_t max_results = 10;
     bool explain_scores = false;
+    
+    // Deprecated: Use ranker_name instead
+    enum RankingAlgorithm { TF_IDF, BM25 };
+    RankingAlgorithm algorithm = BM25;  // For backward compatibility
 };
 
 /**
@@ -41,7 +43,7 @@ struct IndexStatistics {
 };
 
 /**
- * Main search engine API
+ * Main search engine API with plugin architecture for rankers
  */
 class SearchEngine {
 public:
@@ -58,6 +60,11 @@ public:
     std::vector<SearchResult> search(const std::string& query,
                                      const SearchOptions& options = {});
     
+    // Overload for searching with specific ranker
+    std::vector<SearchResult> search(const std::string& query,
+                                     const std::string& ranker_name,
+                                     size_t max_results = 10);
+    
     // Statistics
     IndexStatistics getStats() const;
     
@@ -66,21 +73,33 @@ public:
     bool loadSnapshot(const std::string& filepath);
     
     // Configuration
-    void setRanker(std::unique_ptr<Ranker> ranker);
     void setTokenizer(std::unique_ptr<Tokenizer> tokenizer);
+    
+    // Ranker management (plugin architecture)
+    void registerCustomRanker(std::unique_ptr<Ranker> ranker);
+    void setDefaultRanker(const std::string& ranker_name);
+    std::string getDefaultRanker() const;
+    std::vector<std::string> listAvailableRankers() const;
+    bool hasRanker(const std::string& name) const;
+    
+    // Get ranker for direct parameter tuning
+    Ranker* getRanker(const std::string& name);
     
     // Tokenizer configuration
     void enableSIMD(bool enabled) { if (tokenizer_) tokenizer_->enableSIMD(enabled); }
     void setStemmer(StemmerType type) { if (tokenizer_) tokenizer_->setStemmer(type); }
     void setRemoveStopwords(bool enabled) { if (tokenizer_) tokenizer_->setRemoveStopwords(enabled); }
     
+    // Deprecated: Use registerCustomRanker() instead
+    void setRanker(std::unique_ptr<Ranker> ranker);
+    
 private:
     friend class Persistence;
     
     std::unique_ptr<Tokenizer> tokenizer_;
     std::unique_ptr<InvertedIndex> index_;
-    std::unique_ptr<Ranker> ranker_;
     std::unique_ptr<QueryParser> query_parser_;
+    std::unique_ptr<RankerRegistry> ranker_registry_;
     std::unordered_map<uint64_t, Document> documents_;
     uint64_t next_doc_id_;
 };

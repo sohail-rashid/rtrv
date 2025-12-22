@@ -6,11 +6,13 @@ namespace search_engine {
 SearchEngine::SearchEngine()
     : tokenizer_(std::make_unique<Tokenizer>()),
       index_(std::make_unique<InvertedIndex>()),
-      ranker_(std::make_unique<Bm25Ranker>()),
       query_parser_(std::make_unique<QueryParser>()),
+      ranker_registry_(std::make_unique<RankerRegistry>()),
       next_doc_id_(1) {
     // Enable SIMD tokenization for better performance
     tokenizer_->enableSIMD(true);
+    
+    // RankerRegistry automatically registers built-in rankers (BM25, TF-IDF, ML-Ranker)
 }
 
 SearchEngine::~SearchEngine() = default;
@@ -124,12 +126,23 @@ std::vector<SearchResult> SearchEngine::search(const std::string& query,
         }
     }
     
-    // Select ranker based on options
-    Ranker* ranker_to_use = ranker_.get();
-    std::unique_ptr<TfIdfRanker> tfidf_temp;
-    if (options.algorithm == SearchOptions::TF_IDF) {
-        tfidf_temp = std::make_unique<TfIdfRanker>();
-        ranker_to_use = tfidf_temp.get();
+    // Select ranker (plugin architecture)
+    Ranker* ranker_to_use = nullptr;
+    
+    if (!options.ranker_name.empty()) {
+        // Use specified ranker
+        ranker_to_use = ranker_registry_->getRanker(options.ranker_name);
+    } else if (options.algorithm == SearchOptions::TF_IDF) {
+        // Backward compatibility: use algorithm enum
+        ranker_to_use = ranker_registry_->getRanker("TF-IDF");
+    } else {
+        // Use default ranker
+        ranker_to_use = ranker_registry_->getDefaultRanker();
+    }
+    
+    if (!ranker_to_use) {
+        // Fallback to BM25 if ranker not found
+        ranker_to_use = ranker_registry_->getRanker("BM25");
     }
     
     // Score all candidate documents
@@ -144,7 +157,8 @@ std::vector<SearchResult> SearchEngine::search(const std::string& query,
                 result.score = score;
                 
                 if (options.explain_scores) {
-                    result.explanation = "Score: " + std::to_string(score);
+                    result.explanation = "Ranker: " + ranker_to_use->getName() + 
+                                       ", Score: " + std::to_string(score);
                 }
                 
                 results.push_back(result);
@@ -193,8 +207,62 @@ bool SearchEngine::loadSnapshot(const std::string& filepath) {
     return Persistence::load(*this, filepath);
 }
 
+// Search overload with specific ranker name
+std::vector<SearchResult> SearchEngine::search(const std::string& query,
+                                               const std::string& ranker_name,
+                                               size_t max_results) {
+    SearchOptions options;
+    options.ranker_name = ranker_name;
+    options.max_results = max_results;
+    return search(query, options);
+}
+
+// Ranker management methods (plugin architecture)
+void SearchEngine::registerCustomRanker(std::unique_ptr<Ranker> ranker) {
+    if (ranker && ranker_registry_) {
+        ranker_registry_->registerRanker(std::move(ranker));
+    }
+}
+
+void SearchEngine::setDefaultRanker(const std::string& ranker_name) {
+    if (ranker_registry_) {
+        ranker_registry_->setDefaultRanker(ranker_name);
+    }
+}
+
+std::string SearchEngine::getDefaultRanker() const {
+    if (ranker_registry_) {
+        return ranker_registry_->getDefaultRankerName();
+    }
+    return "BM25";
+}
+
+std::vector<std::string> SearchEngine::listAvailableRankers() const {
+    if (ranker_registry_) {
+        return ranker_registry_->listRankers();
+    }
+    return {};
+}
+
+bool SearchEngine::hasRanker(const std::string& name) const {
+    if (ranker_registry_) {
+        return ranker_registry_->hasRanker(name);
+    }
+    return false;
+}
+
+Ranker* SearchEngine::getRanker(const std::string& name) {
+    if (ranker_registry_) {
+        return ranker_registry_->getRanker(name);
+    }
+    return nullptr;
+}
+
+// Deprecated: Use registerCustomRanker() instead
 void SearchEngine::setRanker(std::unique_ptr<Ranker> ranker) {
-    ranker_ = std::move(ranker);
+    if (ranker && ranker_registry_) {
+        ranker_registry_->registerRanker(std::move(ranker));
+    }
 }
 
 void SearchEngine::setTokenizer(std::unique_ptr<Tokenizer> tokenizer) {
