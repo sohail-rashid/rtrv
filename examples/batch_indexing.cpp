@@ -1,74 +1,66 @@
 #include "search_engine.hpp"
+#include "document_loader.hpp"
 #include <iostream>
-#include <fstream>
 #include <chrono>
-#include <sstream>
 
 using namespace search_engine;
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <corpus_file>\n";
-        return 1;
+    std::string corpus_file = "../data/wikipedia_sample.json";
+    
+    if (argc >= 2) {
+        corpus_file = argv[1];
     }
     
     SearchEngine engine;
     
-    // TODO: Implement batch indexing from file
-    // Read documents from file
-    // Measure indexing throughput
-    // Save snapshot
-    
     std::cout << "Batch Indexing Example\n";
     std::cout << "======================\n\n";
     
-    std::ifstream file(argv[1]);
-    if (!file) {
-        std::cerr << "Error: Cannot open file " << argv[1] << "\n";
-        return 1;
-    }
-    
-    std::cout << "Reading documents from " << argv[1] << "...\n";
+    std::cout << "Loading documents from " << corpus_file << "...\n";
     
     auto start = std::chrono::high_resolution_clock::now();
     
-    // Read and index documents
-    // Expected format: doc_id|content (one per line)
-    size_t count = 0;
-    std::string line;
+    // Load documents using DocumentLoader
+    DocumentLoader loader;
+    std::vector<Document> documents;
     
-    while (std::getline(file, line)) {
-        if (line.empty()) continue;
+    try {
+        documents = loader.loadJSONL(corpus_file);
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading documents: " << e.what() << "\n";
+        return 1;
+    }
+    
+    std::cout << "Loaded " << documents.size() << " documents from file.\n";
+    std::cout << "Indexing documents...\n";
+    
+    // Index all documents
+    size_t count = 0;
+    for (const auto& doc : documents) {
+        engine.indexDocument(doc);
+        count++;
         
-        // Parse line: doc_id|content
-        size_t pos = line.find('|');
-        if (pos != std::string::npos) {
-            std::string id_str = line.substr(0, pos);
-            std::string content = line.substr(pos + 1);
-            
-            uint64_t doc_id = std::stoull(id_str);
-            Document doc{doc_id, content};
-            engine.indexDocument(doc);
-            count++;
-            
-            // Progress indicator every 100 documents
-            if (count % 100 == 0) {
-                std::cout << "  Indexed " << count << " documents...\r" << std::flush;
-            }
+        // Progress indicator every 10 documents
+        if (count % 10 == 0) {
+            std::cout << "  Indexed " << count << " documents...\r" << std::flush;
         }
     }
     
-    if (count >= 100) {
+    if (count >= 10) {
         std::cout << std::endl;  // New line after progress indicator
     }
     
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     
-    std::cout << "Indexed " << count << " documents in " 
+    std::cout << "\nIndexed " << count << " documents in " 
               << duration.count() << "ms\n";
-    std::cout << "Throughput: " << (count * 1000.0 / duration.count()) 
-              << " docs/sec\n";
+    
+    if (duration.count() > 0) {
+        std::cout << "Throughput: " << (count * 1000.0 / duration.count()) 
+                  << " docs/sec\n";
+    }
     
     // Display statistics
     auto stats = engine.getStats();
