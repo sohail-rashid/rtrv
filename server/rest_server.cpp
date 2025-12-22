@@ -1,4 +1,5 @@
  #include "search_engine.hpp"
+#include "document_loader.hpp"
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -97,7 +98,7 @@ std::string handleSearch(SearchEngine& engine, const std::string& query_string) 
         json << "      \"score\": " << std::fixed << std::setprecision(6) << result.score << ",\n";
         json << "      \"document\": {\n";
         json << "        \"id\": " << result.document.id << ",\n";
-        json << "        \"content\": \"" << escapeJson(result.document.content) << "\"\n";
+        json << "        \"content\": \"" << escapeJson(result.document.getAllText()) << "\"\n";
         json << "      }\n";
         json << "    }";
         if (i < results.size() - 1) json << ",";
@@ -138,7 +139,7 @@ std::string handleIndex(SearchEngine& engine, const std::string& body) {
     uint64_t id = std::stoull(id_match[1]);
     std::string content = content_match[1];
     
-    Document doc(id, content);
+    Document doc{static_cast<uint32_t>(id), std::unordered_map<std::string, std::string>{{"content", content}}};
     engine.indexDocument(doc);
     
     std::ostringstream json;
@@ -240,6 +241,19 @@ void handleClient(int client_socket, SearchEngine& engine) {
     
     if (method == "OPTIONS") {
         response_body = "";
+    } else if (method == "GET" && path == "/") {
+        response_body = R"({
+  "service": "Search Engine REST API",
+  "version": "1.0",
+  "endpoints": {
+    "GET /search": "Search documents. Params: q (query), algorithm (bm25|tfidf), max_results",
+    "GET /stats": "Get index statistics",
+    "POST /index": "Index a document. Body: {\"id\": number, \"content\": \"text\"}",
+    "DELETE /delete/<id>": "Delete a document by ID",
+    "POST /save": "Save snapshot. Body: {\"filename\": \"path\"}",
+    "POST /load": "Load snapshot. Body: {\"filename\": \"path\"}"
+  }
+})";
     } else if (method == "GET" && path.find("/search") == 0) {
         size_t query_pos = path.find('?');
         std::string query_string = (query_pos != std::string::npos) ? path.substr(query_pos + 1) : "";
@@ -300,24 +314,35 @@ int main(int argc, char* argv[]) {
     SearchEngine engine;
     
     // Load sample data from file
-    std::cout << "Loading sample data from data/wikipedia_sample.txt...\n";
-    std::ifstream file("../data/wikipedia_sample.txt");
-    if (file.is_open()) {
-        std::string line;
-        int count = 0;
-        while (std::getline(file, line)) {
-            size_t delimiter_pos = line.find('|');
-            if (delimiter_pos != std::string::npos) {
-                uint64_t id = std::stoull(line.substr(0, delimiter_pos));
-                std::string content = line.substr(delimiter_pos + 1);
-                engine.indexDocument(Document(id, content));
-                count++;
+    std::cout << "Loading sample data from wikipedia_sample.json...\n";
+    DocumentLoader loader;
+    
+    // Try multiple paths to find the data file
+    std::vector<std::string> paths = {
+        "../data/wikipedia_sample.json",      // Run from build/
+        "../../data/wikipedia_sample.json",   // Run from build/server/
+        "data/wikipedia_sample.json"          // Run from root
+    };
+    
+    bool loaded = false;
+    for (const auto& path : paths) {
+        try {
+            auto documents = loader.loadJSONL(path);
+            for (const auto& doc : documents) {
+                engine.indexDocument(doc);
             }
+            std::cout << "✅ Loaded " << documents.size() << " documents from " << path << "\n";
+            loaded = true;
+            break;
+        } catch (const std::exception& e) {
+            // Try next path
+            continue;
         }
-        file.close();
-        std::cout << "Loaded " << count << " documents\n";
-    } else {
-        std::cerr << "Warning: Could not open data/wikipedia_sample.txt, starting with empty index\n";
+    }
+    
+    if (!loaded) {
+        std::cerr << "⚠️  Warning: Could not load wikipedia_sample.json from any location, starting with empty index\n";
+        std::cerr << "   Tried paths: " << paths[0] << ", " << paths[1] << ", " << paths[2] << "\n";
     }
     
     // Create socket
