@@ -16,6 +16,7 @@ add_executable(search_engine_tests
     query_parser_test.cpp
     search_engine_test.cpp
     integration_test.cpp
+    document_loader_test.cpp
 )
 
 target_link_libraries(search_engine_tests

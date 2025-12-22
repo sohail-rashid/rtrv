@@ -24,18 +24,13 @@ bool Persistence::save(const SearchEngine& engine, const std::string& filepath) 
         // Write doc_id
         file.write(reinterpret_cast<const char*>(&doc_id), sizeof(doc_id));
         
-        // Write document content length and content
-        size_t content_len = doc.content.size();
-        file.write(reinterpret_cast<const char*>(&content_len), sizeof(content_len));
-        file.write(doc.content.data(), content_len);
-        
         // Write term_count
         file.write(reinterpret_cast<const char*>(&doc.term_count), sizeof(doc.term_count));
         
-        // Write metadata size and entries
-        size_t metadata_size = doc.metadata.size();
-        file.write(reinterpret_cast<const char*>(&metadata_size), sizeof(metadata_size));
-        for (const auto& [key, value] : doc.metadata) {
+        // Write fields size and entries
+        size_t fields_size = doc.fields.size();
+        file.write(reinterpret_cast<const char*>(&fields_size), sizeof(fields_size));
+        for (const auto& [key, value] : doc.fields) {
             size_t key_len = key.size();
             file.write(reinterpret_cast<const char*>(&key_len), sizeof(key_len));
             file.write(key.data(), key_len);
@@ -103,21 +98,15 @@ bool Persistence::load(SearchEngine& engine, const std::string& filepath) {
         uint64_t doc_id;
         file.read(reinterpret_cast<char*>(&doc_id), sizeof(doc_id));
         
-        // Read content
-        size_t content_len;
-        file.read(reinterpret_cast<char*>(&content_len), sizeof(content_len));
-        std::string content(content_len, '\0');
-        file.read(&content[0], content_len);
-        
         // Read term_count
         size_t term_count;
         file.read(reinterpret_cast<char*>(&term_count), sizeof(term_count));
         
-        // Read metadata
-        size_t metadata_size;
-        file.read(reinterpret_cast<char*>(&metadata_size), sizeof(metadata_size));
-        std::unordered_map<std::string, std::string> metadata;
-        for (size_t j = 0; j < metadata_size; ++j) {
+        // Read fields
+        size_t fields_size;
+        file.read(reinterpret_cast<char*>(&fields_size), sizeof(fields_size));
+        std::unordered_map<std::string, std::string> fields;
+        for (size_t j = 0; j < fields_size; ++j) {
             size_t key_len;
             file.read(reinterpret_cast<char*>(&key_len), sizeof(key_len));
             std::string key(key_len, '\0');
@@ -128,12 +117,11 @@ bool Persistence::load(SearchEngine& engine, const std::string& filepath) {
             std::string value(val_len, '\0');
             file.read(&value[0], val_len);
             
-            metadata[key] = value;
+            fields[key] = value;
         }
         
         // Create and store document
-        Document doc{doc_id, content};
-        doc.metadata = metadata;
+        Document doc{static_cast<uint32_t>(doc_id), fields};
         doc.term_count = term_count;
         engine.documents_[doc_id] = doc;
     }

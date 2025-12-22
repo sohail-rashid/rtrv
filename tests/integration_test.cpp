@@ -15,11 +15,11 @@ protected:
 
 TEST_F(IntegrationTest, EndToEndSearch) {
     // Index multiple documents
-    Document doc1{0, "artificial intelligence and machine learning"};
-    Document doc2{0, "deep learning neural networks"};
-    Document doc3{0, "natural language processing"};
-    Document doc4{0, "computer vision image recognition"};
-    Document doc5{0, "machine learning algorithms"};
+    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "artificial intelligence and machine learning"}}};
+    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "deep learning neural networks"}}};
+    Document doc3{0, std::unordered_map<std::string, std::string>{{"content", "natural language processing"}}};
+    Document doc4{0, std::unordered_map<std::string, std::string>{{"content", "computer vision image recognition"}}};
+    Document doc5{0, std::unordered_map<std::string, std::string>{{"content", "machine learning algorithms"}}};
     
     engine.indexDocument(doc1);
     engine.indexDocument(doc2);
@@ -50,7 +50,7 @@ TEST_F(IntegrationTest, EndToEndSearch) {
 TEST_F(IntegrationTest, ConcurrentOperations) {
     // Pre-populate with some documents
     for (int i = 0; i < 20; ++i) {
-        Document doc{0, "document " + std::to_string(i) + " test content"};
+        Document doc{0, std::unordered_map<std::string, std::string>{{"content", "document " + std::to_string(i) + " test content"}}};
         engine.indexDocument(doc);
     }
     
@@ -74,7 +74,7 @@ TEST_F(IntegrationTest, ConcurrentOperations) {
     for (int i = 0; i < num_threads / 2; ++i) {
         threads.emplace_back([&engine = this->engine, i]() {
             for (int j = 0; j < 50; ++j) {
-                Document doc{0, "updated document " + std::to_string(i * 50 + j)};
+                Document doc{0, std::unordered_map<std::string, std::string>{{"content", "updated document " + std::to_string(i * 50 + j)}}};
                 engine.indexDocument(doc);
             }
         });
@@ -95,14 +95,11 @@ TEST_F(IntegrationTest, ConcurrentOperations) {
 
 TEST_F(IntegrationTest, PersistenceRoundTrip) {
     // Index documents with metadata
-    Document doc1{0, "first document with interesting content"};
-    doc1.metadata["author"] = "Alice";
-    doc1.metadata["category"] = "tech";
+    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "first document with interesting content"}, {"author", "Alice"}, {"category", "tech"}}};
     
-    Document doc2{0, "second document about different topics"};
-    doc2.metadata["author"] = "Bob";
+    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "second document about different topics"}, {"author", "Bob"}}};
     
-    Document doc3{0, "third document with more interesting content"};
+    Document doc3{0, std::unordered_map<std::string, std::string>{{"content", "third document with more interesting content"}}};
     
     engine.indexDocument(doc1);
     engine.indexDocument(doc2);
@@ -137,7 +134,8 @@ TEST_F(IntegrationTest, PersistenceRoundTrip) {
     
     for (size_t i = 0; i < results_after.size(); ++i) {
         EXPECT_EQ(results_after[i].document.id, results_before[i].document.id);
-        EXPECT_EQ(results_after[i].document.content, results_before[i].document.content);
+        // Note: getAllText() order may vary due to unordered_map, so we verify fields match
+        EXPECT_EQ(results_after[i].document.getField("content"), results_before[i].document.getField("content"));
         EXPECT_DOUBLE_EQ(results_after[i].score, results_before[i].score);
     }
     
@@ -148,9 +146,9 @@ TEST_F(IntegrationTest, PersistenceRoundTrip) {
     // Find doc1 by content
     bool found_alice = false;
     for (const auto& result : all_results) {
-        if (result.document.content.find("first document") != std::string::npos) {
-            EXPECT_EQ(result.document.metadata.at("author"), "Alice");
-            EXPECT_EQ(result.document.metadata.at("category"), "tech");
+        if (result.document.getAllText().find("first document") != std::string::npos) {
+            EXPECT_EQ(result.document.getField("author"), "Alice");
+            EXPECT_EQ(result.document.getField("category"), "tech");
             found_alice = true;
             break;
         }
@@ -176,7 +174,7 @@ TEST_F(IntegrationTest, LargeCorpus) {
         if (i % 7 == 0) content += "business management strategy";
         content += " sample text content";
         
-        Document doc{0, content};
+        Document doc{0, std::unordered_map<std::string, std::string>{{"content", content}}};
         engine.indexDocument(doc);
     }
     
