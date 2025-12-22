@@ -16,9 +16,9 @@ int main() {
     
     // Index documents
     std::cout << "Indexing documents...\n";
-    engine.indexDocument({1, "The quick brown fox jumps over the lazy dog"});
-    engine.indexDocument({2, "A quick brown dog runs in the park"});
-    engine.indexDocument({3, "The lazy cat sleeps all day"});
+    engine.indexDocument({1, std::unordered_map<std::string, std::string>{{"content", "The quick brown fox jumps over the lazy dog"}}});
+    engine.indexDocument({2, std::unordered_map<std::string, std::string>{{"content", "A quick brown dog runs in the park"}}});
+    engine.indexDocument({3, std::unordered_map<std::string, std::string>{{"content", "The lazy cat sleeps all day"}}});
     
     // Search
     std::cout << "\nSearching for 'quick dog'...\n";
@@ -29,7 +29,7 @@ int main() {
     for (const auto& result : results) {
         std::cout << "Doc " << result.document.id 
                   << " (score: " << result.score << "): "
-                  << result.document.content << "\n";
+                  << result.document.getField("content") << "\n";
     }
     
     return 0;
