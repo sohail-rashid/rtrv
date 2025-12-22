@@ -47,18 +47,18 @@ bool Persistence::save(const SearchEngine& engine, const std::string& filepath) 
     size_t num_index_terms = index_map.size();
     file.write(reinterpret_cast<const char*>(&num_index_terms), sizeof(num_index_terms));
     
-    for (const auto& [term, postings] : index_map) {
+    for (const auto& [term, posting_list] : index_map) {
         // Write term
         size_t term_len = term.size();
         file.write(reinterpret_cast<const char*>(&term_len), sizeof(term_len));
         file.write(term.data(), term_len);
         
         // Write postings count
-        size_t postings_count = postings.size();
+        size_t postings_count = posting_list.postings.size();
         file.write(reinterpret_cast<const char*>(&postings_count), sizeof(postings_count));
         
         // Write each posting
-        for (const auto& posting : postings) {
+        for (const auto& posting : posting_list.postings) {
             file.write(reinterpret_cast<const char*>(&posting.doc_id), sizeof(posting.doc_id));
             file.write(reinterpret_cast<const char*>(&posting.term_frequency), sizeof(posting.term_frequency));
             
