@@ -85,6 +85,10 @@ public:
     // Get ranker for direct parameter tuning
     Ranker* getRanker(const std::string& name);
     
+    // Get index for direct access (e.g., skip pointer operations)
+    InvertedIndex* getIndex() { return index_.get(); }
+    const InvertedIndex* getIndex() const { return index_.get(); }
+    
     // Tokenizer configuration
     void enableSIMD(bool enabled) { if (tokenizer_) tokenizer_->enableSIMD(enabled); }
     void setStemmer(StemmerType type) { if (tokenizer_) tokenizer_->setStemmer(type); }

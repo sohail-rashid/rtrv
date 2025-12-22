@@ -40,6 +40,8 @@ void printHelp() {
     std::cout << "║ stats                 │ Show index statistics                  ║\n";
     std::cout << "║ save <file>           │ Save snapshot to file                  ║\n";
     std::cout << "║ load <file>           │ Load snapshot from file                ║\n";
+    std::cout << "║ skip rebuild [term]   │ Rebuild skip pointers (all or term)    ║\n";
+    std::cout << "║ skip stats <term>     │ Show skip pointer stats for term       ║\n";
     std::cout << "║ clear                 │ Clear the screen                       ║\n";
     std::cout << "║ help (or ?)           │ Show this help                         ║\n";
     std::cout << "║ quit (or q, exit)     │ Exit the server                        ║\n";
@@ -139,6 +141,42 @@ void handleLoad(SearchEngine& engine, const std::string& filepath) {
     std::cout << "{\"success\": " << (success ? "true" : "false") << "}\n";
 }
 
+void handleSkipRebuild(SearchEngine& engine, const std::string& term) {
+    if (term.empty()) {
+        // Rebuild all skip pointers
+        engine.getIndex()->rebuildSkipPointers();
+        std::cout << "{\"success\": true, \"message\": \"All skip pointers rebuilt\"}\n";
+    } else {
+        // Rebuild for specific term
+        engine.getIndex()->rebuildSkipPointers(term);
+        std::cout << "{\"success\": true, \"term\": \"" << escapeJson(term) << "\"}\n";
+    }
+}
+
+void handleSkipStats(SearchEngine& engine, const std::string& term) {
+    if (term.empty()) {
+        std::cout << "{\"error\": \"No term specified\"}\n";
+        return;
+    }
+    
+    auto posting_list = engine.getIndex()->getPostingList(term);
+    
+    std::cout << "{\n";
+    std::cout << "  \"term\": \"" << escapeJson(term) << "\",\n";
+    std::cout << "  \"postings_count\": " << posting_list.postings.size() << ",\n";
+    std::cout << "  \"skip_pointers_count\": " << posting_list.skip_pointers.size() << ",\n";
+    
+    if (!posting_list.skip_pointers.empty() && posting_list.skip_pointers.size() > 1) {
+        size_t interval = posting_list.skip_pointers[1].position - posting_list.skip_pointers[0].position;
+        std::cout << "  \"skip_interval\": " << interval << ",\n";
+    } else {
+        std::cout << "  \"skip_interval\": 0,\n";
+    }
+    
+    std::cout << "  \"needs_rebuild\": " << (posting_list.needsSkipRebuild() ? "true" : "false") << "\n";
+    std::cout << "}\n";
+}
+
 void handleClear(SearchEngine&, const std::string&) {
     // Clear screen: ANSI escape code
     std::cout << "\033[2J\033[1;1H";
@@ -234,6 +272,23 @@ int main() {
     registry.registerCommand("stats", "Show index statistics", handleStats);
     registry.registerCommand("save", "Save snapshot to file", handleSave);
     registry.registerCommand("load", "Load snapshot from file", handleLoad);
+    registry.registerCommand("skip", "Skip pointer operations", 
+        [](SearchEngine& engine, const std::string& args) {
+            std::istringstream iss(args);
+            std::string subcommand;
+            iss >> subcommand;
+            
+            std::string remaining;
+            std::getline(iss >> std::ws, remaining);
+            
+            if (subcommand == "rebuild") {
+                handleSkipRebuild(engine, remaining);
+            } else if (subcommand == "stats") {
+                handleSkipStats(engine, remaining);
+            } else {
+                std::cout << "{\"error\": \"Unknown skip subcommand. Use 'skip rebuild [term]' or 'skip stats <term>'}\\n";
+            }
+        });
     registry.registerCommand("clear", "Clear the screen", handleClear, {"cls"});
     registry.registerCommand("help", "Show this help", handleHelpCmd, {"?"});
     

@@ -198,6 +198,55 @@ std::string handleLoad(SearchEngine& engine, const std::string& body) {
     return json.str();
 }
 
+std::string handleSkipRebuild(SearchEngine& engine, const std::string& path) {
+    // Check if rebuilding for specific term
+    std::regex term_pattern("/skip/rebuild/([^/]+)");
+    std::smatch match;
+    
+    if (std::regex_search(path, match, term_pattern)) {
+        // Rebuild for specific term
+        std::string term = urlDecode(match[1]);
+        engine.getIndex()->rebuildSkipPointers(term);
+        
+        std::ostringstream json;
+        json << "{\"success\": true, \"term\": \"" << escapeJson(term) << "\"}";
+        return json.str();
+    } else {
+        // Rebuild all skip pointers
+        engine.getIndex()->rebuildSkipPointers();
+        return "{\"success\": true, \"message\": \"All skip pointers rebuilt\"}";
+    }
+}
+
+std::string handleSkipStats(SearchEngine& engine, const std::string& query_string) {
+    std::string term = getQueryParam(query_string, "term");
+    
+    if (term.empty()) {
+        return "{\"error\": \"Missing term parameter\"}";
+    }
+    
+    auto posting_list = engine.getIndex()->getPostingList(term);
+    
+    std::ostringstream json;
+    json << "{\n";
+    json << "  \"term\": \"" << escapeJson(term) << "\",\n";
+    json << "  \"postings_count\": " << posting_list.postings.size() << ",\n";
+    json << "  \"skip_pointers_count\": " << posting_list.skip_pointers.size() << ",\n";
+    
+    if (!posting_list.skip_pointers.empty()) {
+        size_t interval = posting_list.skip_pointers.size() > 1 ?
+            posting_list.skip_pointers[1].position - posting_list.skip_pointers[0].position : 0;
+        json << "  \"skip_interval\": " << interval << ",\n";
+    } else {
+        json << "  \"skip_interval\": 0,\n";
+    }
+    
+    json << "  \"needs_rebuild\": " << (posting_list.needsSkipRebuild() ? "true" : "false") << "\n";
+    json << "}";
+    
+    return json.str();
+}
+
 void handleClient(int client_socket, SearchEngine& engine) {
     char buffer[4096] = {0};
     ssize_t bytes_read = read(client_socket, buffer, sizeof(buffer) - 1);
@@ -251,7 +300,10 @@ void handleClient(int client_socket, SearchEngine& engine) {
     "POST /index": "Index a document. Body: {\"id\": number, \"content\": \"text\"}",
     "DELETE /delete/<id>": "Delete a document by ID",
     "POST /save": "Save snapshot. Body: {\"filename\": \"path\"}",
-    "POST /load": "Load snapshot. Body: {\"filename\": \"path\"}"
+    "POST /load": "Load snapshot. Body: {\"filename\": \"path\"}",
+    "POST /skip/rebuild": "Rebuild all skip pointers",
+    "POST /skip/rebuild/<term>": "Rebuild skip pointers for specific term",
+    "GET /skip/stats?term=<term>": "Get skip pointer statistics for a term"
   }
 })";
     } else if (method == "GET" && path.find("/search") == 0) {
@@ -268,6 +320,12 @@ void handleClient(int client_socket, SearchEngine& engine) {
         response_body = handleSave(engine, body);
     } else if (method == "POST" && path == "/load") {
         response_body = handleLoad(engine, body);
+    } else if (method == "POST" && (path == "/skip/rebuild" || path.find("/skip/rebuild/") == 0)) {
+        response_body = handleSkipRebuild(engine, path);
+    } else if (method == "GET" && path.find("/skip/stats") == 0) {
+        size_t query_pos = path.find('?');
+        std::string query_string = (query_pos != std::string::npos) ? path.substr(query_pos + 1) : "";
+        response_body = handleSkipStats(engine, query_string);
     } else {
         response_body = "{\"error\": \"Not found\"}";
         response_headers = "HTTP/1.1 404 Not Found\r\n"
@@ -388,6 +446,9 @@ int main(int argc, char* argv[]) {
     std::cout << "  DELETE /delete/<id>\n";
     std::cout << "  POST   /save - body: {\"filename\": \"path\"}\n";
     std::cout << "  POST   /load - body: {\"filename\": \"path\"}\n";
+    std::cout << "  POST   /skip/rebuild\n";
+    std::cout << "  POST   /skip/rebuild/<term>\n";
+    std::cout << "  GET    /skip/stats?term=<term>\n";
     std::cout << "Press Ctrl+C to stop\n\n";
     
     // Accept connections

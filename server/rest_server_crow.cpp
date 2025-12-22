@@ -310,6 +310,79 @@ int main(int argc, char* argv[]) {
         }
     });
     
+    // Skip rebuild endpoint - POST /skip/rebuild
+    CROW_ROUTE(app, "/skip/rebuild").methods("POST"_method)
+    ([](const crow::request& req) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] POST /skip/rebuild" << std::endl;
+        
+        g_engine->getIndex()->rebuildSkipPointers();
+        
+        crow::json::wvalue response;
+        response["success"] = true;
+        response["message"] = "All skip pointers rebuilt";
+        
+        std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] POST /skip/rebuild → 200" << std::endl;
+        crow::response res(200, response);
+        res.add_header("Access-Control-Allow-Origin", "*");
+        return res;
+    });
+    
+    // Skip rebuild for term endpoint - POST /skip/rebuild/<term>
+    CROW_ROUTE(app, "/skip/rebuild/<string>").methods("POST"_method)
+    ([](const crow::request& req, const std::string& term) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] POST /skip/rebuild/" << term << std::endl;
+        
+        g_engine->getIndex()->rebuildSkipPointers(term);
+        
+        crow::json::wvalue response;
+        response["success"] = true;
+        response["term"] = term;
+        
+        std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] POST /skip/rebuild/" << term << " → 200" << std::endl;
+        crow::response res(200, response);
+        res.add_header("Access-Control-Allow-Origin", "*");
+        return res;
+    });
+    
+    // Skip stats endpoint - GET /skip/stats?term=<term>
+    CROW_ROUTE(app, "/skip/stats")
+    ([](const crow::request& req) {
+        std::string client_ip = req.remote_ip_address;
+        std::cout << "📥 [" << getTimestamp() << "] [" << client_ip << "] GET /skip/stats" << std::endl;
+        
+        auto term = req.url_params.get("term");
+        if (!term) {
+            std::cout << "⚠️ [" << getTimestamp() << "] [" << client_ip << "] GET /skip/stats → 400" << std::endl;
+            crow::response res(400, R"({"error": "Missing term parameter"})");
+            res.add_header("Content-Type", "application/json");
+            res.add_header("Access-Control-Allow-Origin", "*");
+            return res;
+        }
+        
+        auto posting_list = g_engine->getIndex()->getPostingList(term);
+        
+        crow::json::wvalue response;
+        response["term"] = term;
+        response["postings_count"] = posting_list.postings.size();
+        response["skip_pointers_count"] = posting_list.skip_pointers.size();
+        
+        if (!posting_list.skip_pointers.empty() && posting_list.skip_pointers.size() > 1) {
+            size_t interval = posting_list.skip_pointers[1].position - posting_list.skip_pointers[0].position;
+            response["skip_interval"] = interval;
+        } else {
+            response["skip_interval"] = 0;
+        }
+        
+        response["needs_rebuild"] = posting_list.needsSkipRebuild();
+        
+        std::cout << "✅ [" << getTimestamp() << "] [" << client_ip << "] GET /skip/stats → 200" << std::endl;
+        crow::response res(200, response);
+        res.add_header("Access-Control-Allow-Origin", "*");
+        return res;
+    });
+    
     std::cout << "=== Search Engine REST Server (Crow) ===\n";
     std::cout << "Server listening on http://localhost:" << port << "\n";
     std::cout << "Endpoints:\n";
@@ -319,6 +392,9 @@ int main(int argc, char* argv[]) {
     std::cout << "  DELETE /delete/<id>\n";
     std::cout << "  POST   /save - body: {\"filename\": \"path\"}\n";
     std::cout << "  POST   /load - body: {\"filename\": \"path\"}\n";
+    std::cout << "  POST   /skip/rebuild\n";
+    std::cout << "  POST   /skip/rebuild/<term>\n";
+    std::cout << "  GET    /skip/stats?term=<term>\n";
     std::cout << "Press Ctrl+C to stop\n\n";
     
     // Run the server

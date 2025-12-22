@@ -169,6 +169,61 @@ void handleLoad(const HttpRequestPtr& req,
     callback(resp);
 }
 
+// Skip pointer rebuild endpoint handler
+void handleSkipRebuild(const HttpRequestPtr&,
+                       std::function<void(const HttpResponsePtr&)>&& callback,
+                       const std::string& term = "") {
+    Json::Value response;
+    
+    if (!term.empty()) {
+        // Rebuild for specific term
+        g_engine->getIndex()->rebuildSkipPointers(term);
+        response["success"] = true;
+        response["term"] = term;
+    } else {
+        // Rebuild all skip pointers
+        g_engine->getIndex()->rebuildSkipPointers();
+        response["success"] = true;
+        response["message"] = "All skip pointers rebuilt";
+    }
+    
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+}
+
+// Skip pointer stats endpoint handler
+void handleSkipStats(const HttpRequestPtr& req,
+                     std::function<void(const HttpResponsePtr&)>&& callback) {
+    auto term = req->getParameter("term");
+    Json::Value response;
+    
+    if (term.empty()) {
+        response["error"] = "Missing term parameter";
+        auto resp = HttpResponse::newHttpJsonResponse(response);
+        resp->setStatusCode(k400BadRequest);
+        callback(resp);
+        return;
+    }
+    
+    auto posting_list = g_engine->getIndex()->getPostingList(term);
+    
+    response["term"] = term;
+    response["postings_count"] = (Json::UInt)posting_list.postings.size();
+    response["skip_pointers_count"] = (Json::UInt)posting_list.skip_pointers.size();
+    
+    if (!posting_list.skip_pointers.empty() && posting_list.skip_pointers.size() > 1) {
+        size_t interval = posting_list.skip_pointers[1].position - posting_list.skip_pointers[0].position;
+        response["skip_interval"] = (Json::UInt)interval;
+    } else {
+        response["skip_interval"] = 0;
+    }
+    
+    response["needs_rebuild"] = posting_list.needsSkipRebuild();
+    
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+}
+
 int main(int argc, char* argv[]) {
     // Parse command line arguments
     int port = 8080;
@@ -218,6 +273,9 @@ int main(int argc, char* argv[]) {
     std::cout << "  DELETE /delete/<id>\n";
     std::cout << "  POST   /save - body: {\"filename\": \"path\"}\n";
     std::cout << "  POST   /load - body: {\"filename\": \"path\"}\n";
+    std::cout << "  POST   /skip/rebuild\n";
+    std::cout << "  POST   /skip/rebuild/<term>\n";
+    std::cout << "  GET    /skip/stats?term=<term>\n";
     std::cout << "Press Ctrl+C to stop\n\n";
     
     // Configure Drogon
@@ -262,6 +320,12 @@ int main(int argc, char* argv[]) {
     app().registerHandler("/delete/{id}", &handleDelete, {Delete});
     app().registerHandler("/save", &handleSave, {Post});
     app().registerHandler("/load", &handleLoad, {Post});
+    app().registerHandler("/skip/rebuild", 
+        [](const HttpRequestPtr& req, std::function<void(const HttpResponsePtr&)>&& callback) {
+            handleSkipRebuild(req, std::move(callback), "");
+        }, {Post});
+    app().registerHandler("/skip/rebuild/{term}", &handleSkipRebuild, {Post});
+    app().registerHandler("/skip/stats", &handleSkipStats, {Get});
     
     // Handle OPTIONS for CORS preflight
     app().registerHandler("/*",
