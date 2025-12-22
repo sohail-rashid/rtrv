@@ -59,8 +59,8 @@ static void BM_IndexDocument(benchmark::State& state) {
     for (auto _ : state) {
         SearchEngine engine;
         Document doc;
-        doc.content = docs[doc_index % docs.size()].first + " " + 
-                     docs[doc_index % docs.size()].second;
+        doc.fields["title"] = docs[doc_index % docs.size()].first;
+        doc.fields["content"] = docs[doc_index % docs.size()].second;
         engine.indexDocument(doc);
         doc_index++;
     }
@@ -84,8 +84,8 @@ static void BM_BatchIndexing(benchmark::State& state) {
         
         for (int i = 0; i < batch_size && i < static_cast<int>(docs.size()); ++i) {
             Document doc;
-            doc.content = docs[i % docs.size()].first + " " + 
-                         docs[i % docs.size()].second;
+            doc.fields["title"] = docs[i % docs.size()].first;
+            doc.fields["content"] = docs[i % docs.size()].second;
             engine.indexDocument(doc);
         }
     }

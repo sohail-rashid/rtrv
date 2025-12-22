@@ -102,7 +102,8 @@ static void BM_MemoryPerDocument(benchmark::State& state) {
         for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
             Document doc;
             doc.id = i;
-            doc.content = docs[i % docs.size()].first + " " + docs[i % docs.size()].second;
+            doc.fields["title"] = docs[i % docs.size()].first;
+            doc.fields["content"] = docs[i % docs.size()].second;
             engine->indexDocument(doc);
         }
         
@@ -158,7 +159,8 @@ static void BM_IndexSize(benchmark::State& state) {
         for (size_t i = 0; i < docs.size(); ++i) {
             Document doc;
             doc.id = i;
-            doc.content = docs[i].first + " " + docs[i].second;
+            doc.fields["title"] = docs[i].first;
+            doc.fields["content"] = docs[i].second;
             engine->indexDocument(doc);
         }
         

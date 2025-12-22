@@ -61,7 +61,8 @@ static void BM_Search(benchmark::State& state) {
     for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
         Document doc;
         doc.id = i;
-        doc.content = docs[i % docs.size()].first + " " + docs[i % docs.size()].second;
+        doc.fields["title"] = docs[i % docs.size()].first;
+        doc.fields["content"] = docs[i % docs.size()].second;
         engine.indexDocument(doc);
     }
     
@@ -99,7 +100,8 @@ static void BM_SearchComplexQuery(benchmark::State& state) {
     for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
         Document doc;
         doc.id = i;
-        doc.content = docs[i % docs.size()].first + " " + docs[i % docs.size()].second;
+        doc.fields["title"] = docs[i % docs.size()].first;
+        doc.fields["content"] = docs[i % docs.size()].second;
         engine.indexDocument(doc);
     }
     
@@ -140,7 +142,8 @@ static void BM_SearchWithTfIdf(benchmark::State& state) {
     for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
         Document doc;
         doc.id = i;
-        doc.content = docs[i % docs.size()].first + " " + docs[i % docs.size()].second;
+        doc.fields["title"] = docs[i % docs.size()].first;
+        doc.fields["content"] = docs[i % docs.size()].second;
         engine.indexDocument(doc);
     }
     
@@ -173,7 +176,8 @@ static void BM_SearchWithBm25(benchmark::State& state) {
     for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
         Document doc;
         doc.id = i;
-        doc.content = docs[i % docs.size()].first + " " + docs[i % docs.size()].second;
+        doc.fields["title"] = docs[i % docs.size()].first;
+        doc.fields["content"] = docs[i % docs.size()].second;
         engine.indexDocument(doc);
     }
     
@@ -206,7 +210,8 @@ static void BM_SearchResultSize(benchmark::State& state) {
     for (size_t i = 0; i < docs.size(); ++i) {
         Document doc;
         doc.id = i;
-        doc.content = docs[i].first + " " + docs[i].second;
+        doc.fields["title"] = docs[i].first;
+        doc.fields["content"] = docs[i].second;
         engine.indexDocument(doc);
     }
     
