@@ -195,22 +195,67 @@ A browser-based interface for the search engine located in `web_ui/`.
 
 ### Running the Web UI
 
-1. **Start a REST server:**
+The web UI consists of static files (`index.html`, `app.js`, `style.css`) that need to be served through a web server.
+
+**Prerequisites:**
+- A running REST API server (any of the implementations above)
+- A web server to serve static files (Python, Node.js, PHP, or VS Code Live Server)
+
+**Complete Setup:**
+
+1. **Start a REST API server (in terminal 1):**
    ```bash
    cd build/server
-   ./rest_server 8080
+   ./rest_server_drogon 8080
+   ```
+   
+   The server will automatically load `wikipedia_sample.json` and display:
+   ```
+   ✅ Loaded 50 documents from ../data/wikipedia_sample.json
+   === Search Engine REST Server (Drogon) ===
+   Server will listen on http://localhost:8080
    ```
 
-2. **Open the web interface:**
+2. **Start the web UI server (in terminal 2):**
+   
+   **Option A: Using Python (recommended):**
    ```bash
    cd server/web_ui
    python3 -m http.server 3000
    ```
+   
+   **Option B: Using Node.js:**
+   ```bash
+   cd server/web_ui
+   npx http-server -p 3000
+   ```
+   
+   **Option C: Using PHP:**
+   ```bash
+   cd server/web_ui
+   php -S localhost:3000
+   ```
+   
+   **Option D: Using VS Code Live Server:**
+   - Install "Live Server" extension in VS Code
+   - Open `server/web_ui/index.html`
+   - Right-click → "Open with Live Server"
 
 3. **Access in browser:**
    ```
    http://localhost:3000
    ```
+   
+   Or click the URL shown in the terminal output.
+
+**Quick Start (One-Liner):**
+```bash
+# Terminal 1: Start REST server (Drogon - high performance)
+cd build/server && ./rest_server_drogon 8080
+
+# Terminal 2: Start web UI
+cd server/web_ui && python3 -m http.server 3000
+```
 
 ### Features
 
@@ -230,16 +275,74 @@ const API_BASE = 'http://localhost:8080';  // REST API endpoint
 const DEMO_MODE = false;                    // Set true for offline testing
 ```
 
+**Available Settings:**
+- `API_BASE`: URL of your REST API server (change if using different port)
+- `DEMO_MODE`: Enable to test UI without a backend (uses mock data)
+- `DEFAULT_MAX_RESULTS`: Default number of search results (default: 10)
+- `DEFAULT_ALGORITHM`: Default algorithm ('bm25' or 'tfidf')
+
+**How app.js Works:**
+1. Runs in the browser (client-side JavaScript)
+2. Makes HTTP requests to the REST API server
+3. Dynamically updates the UI based on responses
+4. No server-side execution required for the JavaScript itself
+
+**Architecture:**
+```
+Browser (port 3000)          REST API Server (port 8080)
+┌─────────────────┐         ┌──────────────────────┐
+│  index.html     │         │   rest_server        │
+│  style.css      │         │   (C++ backend)      │
+│  app.js         │────────▶│   /search, /stats    │
+│  (JavaScript)   │◀────────│   (JSON responses)   │
+└─────────────────┘         └──────────────────────┘
+     │                               │
+     │                               │
+     └── HTTP Server ─────────────── SearchEngine
+         (Python/Node/PHP)            + Documents
+```
+
 ---
 
 ## Building
 
-All servers are built automatically with CMake:
+### Prerequisites
+
+**Required (all servers):**
+- CMake 3.15+
+- C++17 compatible compiler (GCC 9+, Clang 10+, MSVC 2019+)
+- Threads library
+
+**Optional (framework servers):**
+```bash
+# macOS
+brew install drogon      # For rest_server_drogon
+brew install crow        # For rest_server_crow
+
+# Ubuntu/Debian
+sudo apt install libdrogon-dev libjsoncpp-dev  # For rest_server_drogon
+# Crow is header-only, clone from: https://github.com/CrowCpp/Crow
+
+# Fedora/RHEL
+sudo dnf install drogon-devel jsoncpp-devel    # For rest_server_drogon
+```
+
+### Build All Servers
+
+From the project root:
 
 ```bash
-cd build
+# Create build directory
+mkdir -p build && cd build
+
+# Configure with CMake
 cmake ..
-cmake --build .
+
+# Build all available servers
+make
+
+# Or build with all CPU cores
+make -j$(nproc)
 ```
 
 Executables will be in `build/server/`:
@@ -248,6 +351,69 @@ Executables will be in `build/server/`:
 - `rest_server_crow` (if Crow is installed)
 - `interactive_server` (always built)
 
+### Build Specific Servers
+
+```bash
+cd build
+
+# Build only the raw socket server
+make rest_server
+
+# Build only the interactive CLI
+make interactive_server
+
+# Build only Crow server (requires Crow)
+make rest_server_crow
+
+# Build only Drogon server (requires Drogon)
+make rest_server_drogon
+```
+
+### Rebuild After Changes
+
+```bash
+cd build
+
+# Rebuild specific server after source changes
+make rest_server
+
+# Force clean rebuild
+rm -rf *
+cmake ..
+make
+```
+
+### Build Configuration Options
+
+```bash
+# Debug build with symbols
+cmake -DCMAKE_BUILD_TYPE=Debug ..
+make
+
+# Release build with optimizations
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make
+
+# Specify compiler
+cmake -DCMAKE_CXX_COMPILER=clang++ ..
+make
+```
+
+### Verify Build
+
+```bash
+cd build/server
+
+# Check if servers were built
+ls -lh rest_*
+
+# Test run (should show usage or start server)
+./rest_server --help 2>/dev/null || ./rest_server 8080 &
+sleep 1
+curl http://localhost:8080/stats
+pkill rest_server
+```
+
 ---
 
 ## Quick Start
@@ -255,7 +421,7 @@ Executables will be in `build/server/`:
 ### 1. Start a REST Server
 ```bash
 cd build/server
-./rest_server 8080
+./rest_server_drogon 8080  # Or use rest_server, rest_server_crow
 ```
 
 ### 2. Test with curl
@@ -313,15 +479,27 @@ All servers use consistent logging:
 
 ## Sample Data
 
-All REST servers automatically load sample data from `data/wikipedia_sample.txt` on startup:
+All REST servers automatically load sample data from `data/wikipedia_sample.json` (JSONL format) on startup:
 - 50 computer science articles
 - Topics: AI, ML, algorithms, systems, web technologies
-- Pipe-delimited format: `ID|content`
+- JSONL format: One JSON object per line with `id`, `title`, `content`, `category` fields
+
+Servers try multiple paths automatically:
+- `../data/wikipedia_sample.json` (when running from `build/server/`)
+- `../../data/wikipedia_sample.json` (when running from `build/`)
+- `data/wikipedia_sample.json` (when running from project root)
 
 To use your own data:
-1. Place your corpus in `data/` directory
-2. Update the file path in server source code
-3. Rebuild and restart
+1. Create JSONL file with documents (one JSON object per line)
+2. Place in `data/` directory
+3. Update file path in server source code or pass via command line
+4. Rebuild: `cd build && make <server_name>`
+
+**Example JSONL format:**
+```json
+{"id": 1, "title": "Machine Learning", "content": "Machine learning is...", "category": "AI"}
+{"id": 2, "title": "Algorithms", "content": "An algorithm is...", "category": "CS"}
+```
 
 ---
 
@@ -353,7 +531,8 @@ brew install crow    # For rest_server_crow
 Ensure you run servers from the build directory:
 ```bash
 cd build/server
-./rest_server  # Will load ../data/wikipedia_sample.txt
+./rest_server_drogon  # Will load ../data/wikipedia_sample.json
+# Or use: ./rest_server, ./rest_server_crow, ./interactive_server
 ```
 
 ---

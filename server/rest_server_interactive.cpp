@@ -1,4 +1,5 @@
  #include "search_engine.hpp"
+#include "document_loader.hpp"
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -6,6 +7,7 @@
 #include <functional>
 #include <map>
 #include <algorithm>
+#include <vector>
 
 using namespace search_engine;
 
@@ -60,7 +62,7 @@ void handleIndex(SearchEngine& engine, const std::string& args) {
         return;
     }
     
-    Document doc{id, content};
+    Document doc{static_cast<uint32_t>(id), std::unordered_map<std::string, std::string>{{"content", content}}};
     uint64_t result_id = engine.indexDocument(doc);
     
     std::cout << "{\"success\": true, \"doc_id\": " << result_id << "}\n";
@@ -82,7 +84,7 @@ void handleSearch(SearchEngine& engine, const std::string& query) {
                   << result.score << ",\n";
         std::cout << "      \"document\": {\n";
         std::cout << "        \"id\": " << result.document.id << ",\n";
-        std::cout << "        \"content\": \"" << escapeJson(result.document.content) << "\"\n";
+        std::cout << "        \"content\": \"" << escapeJson(result.document.getAllText()) << "\"\n";
         std::cout << "      }\n";
         std::cout << "    }";
         if (i < results.size() - 1) std::cout << ",";
@@ -197,6 +199,33 @@ public:
 int main() {
     SearchEngine engine;
     CommandRegistry registry;
+    
+    // Load sample data from file
+    DocumentLoader loader;
+    std::vector<std::string> paths = {
+        "../data/wikipedia_sample.json",      // Run from build/
+        "../../data/wikipedia_sample.json",   // Run from build/server/
+        "data/wikipedia_sample.json"          // Run from root
+    };
+    
+    bool loaded = false;
+    for (const auto& path : paths) {
+        try {
+            auto documents = loader.loadJSONL(path);
+            for (const auto& doc : documents) {
+                engine.indexDocument(doc);
+            }
+            std::cout << "✅ Loaded " << documents.size() << " documents from " << path << "\n";
+            loaded = true;
+            break;
+        } catch (const std::exception& e) {
+            continue;
+        }
+    }
+    
+    if (!loaded) {
+        std::cout << "⚠️  No sample data loaded. Starting with empty index.\n";
+    }
     
     // Register all commands with their handlers and aliases
     registry.registerCommand("index", "Index a document", handleIndex);

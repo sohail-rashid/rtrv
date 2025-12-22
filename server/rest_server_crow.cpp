@@ -1,4 +1,5 @@
  #include "search_engine.hpp"
+#include "document_loader.hpp"
 #include <crow.h>
 #include <iostream>
 #include <string>
@@ -8,6 +9,7 @@
 #include <memory>
 #include <chrono>
 #include <ctime>
+#include <vector>
 
 using namespace search_engine;
 
@@ -38,24 +40,33 @@ int main(int argc, char* argv[]) {
     g_engine = std::make_shared<SearchEngine>();
     
     // Load sample data from file
-    std::cout << "Loading sample data from data/wikipedia_sample.txt...\n";
-    std::ifstream file("../data/wikipedia_sample.txt");
-    if (file.is_open()) {
-        std::string line;
-        int count = 0;
-        while (std::getline(file, line)) {
-            size_t delimiter_pos = line.find('|');
-            if (delimiter_pos != std::string::npos) {
-                uint64_t id = std::stoull(line.substr(0, delimiter_pos));
-                std::string content = line.substr(delimiter_pos + 1);
-                g_engine->indexDocument(Document(id, content));
-                count++;
+    std::cout << "Loading sample data from wikipedia_sample.json...\n";
+    DocumentLoader loader;
+    
+    // Try multiple paths to find the data file
+    std::vector<std::string> paths = {
+        "../data/wikipedia_sample.json",      // Run from build/
+        "../../data/wikipedia_sample.json",   // Run from build/server/
+        "data/wikipedia_sample.json"          // Run from root
+    };
+    
+    bool loaded = false;
+    for (const auto& path : paths) {
+        try {
+            auto documents = loader.loadJSONL(path);
+            for (const auto& doc : documents) {
+                g_engine->indexDocument(doc);
             }
+            std::cout << "✅ Loaded " << documents.size() << " documents from " << path << "\n";
+            loaded = true;
+            break;
+        } catch (const std::exception& e) {
+            continue;
         }
-        file.close();
-        std::cout << "Loaded " << count << " documents\n";
-    } else {
-        std::cerr << "Warning: Could not open data/wikipedia_sample.txt, starting with empty index\n";
+    }
+    
+    if (!loaded) {
+        std::cerr << "⚠️  Warning: Could not load wikipedia_sample.json from any location, starting with empty index\n";
     }
     
     // Create Crow app
@@ -110,7 +121,7 @@ int main(int argc, char* argv[]) {
             crow::json::wvalue item;
             item["score"] = result.score;
             item["document"]["id"] = result.document.id;
-            item["document"]["content"] = result.document.content;
+            item["document"]["content"] = result.document.getAllText();
             result_array.push_back(std::move(item));
         }
         response["results"] = std::move(result_array);
@@ -167,7 +178,7 @@ int main(int argc, char* argv[]) {
             uint64_t id = body["id"].u();
             std::string content = body["content"].s();
             
-            Document doc(id, content);
+            Document doc{static_cast<uint32_t>(id), std::unordered_map<std::string, std::string>{{"content", content}}};
             g_engine->indexDocument(doc);
             
             crow::json::wvalue response;
