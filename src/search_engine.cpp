@@ -9,6 +9,8 @@ SearchEngine::SearchEngine()
       ranker_(std::make_unique<Bm25Ranker>()),
       query_parser_(std::make_unique<QueryParser>()),
       next_doc_id_(1) {
+    // Enable SIMD tokenization for better performance
+    tokenizer_->enableSIMD(true);
 }
 
 SearchEngine::~SearchEngine() = default;

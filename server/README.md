@@ -201,7 +201,26 @@ The web UI consists of static files (`index.html`, `app.js`, `style.css`) that n
 - A running REST API server (any of the implementations above)
 - A web server to serve static files (Python, Node.js, PHP, or VS Code Live Server)
 
-**Complete Setup:**
+**Quick Launch (Automated Script):**
+
+The easiest way to start everything is using the provided launch script:
+
+```bash
+cd server/web_ui
+./launch_webui.sh
+```
+
+The script will:
+- ✅ Automatically find and start the best available REST server (Drogon → Crow → Raw)
+- ✅ Start a web server (Python, PHP, or Node.js)
+- ✅ Check for port conflicts
+- ✅ Open your browser automatically
+- ✅ Display URLs and status
+- ✅ Handle graceful shutdown with Ctrl+C
+
+**Manual Setup:**
+
+If you prefer to start servers manually:
 
 1. **Start a REST API server (in terminal 1):**
    ```bash
@@ -250,6 +269,10 @@ The web UI consists of static files (`index.html`, `app.js`, `style.css`) that n
 
 **Quick Start (One-Liner):**
 ```bash
+# Automated: Use the launch script (recommended)
+cd server/web_ui && ./launch_webui.sh
+
+# OR Manual: Start servers separately
 # Terminal 1: Start REST server (Drogon - high performance)
 cd build/server && ./rest_server_drogon 8080
 

@@ -69,6 +69,11 @@ public:
     void setRanker(std::unique_ptr<Ranker> ranker);
     void setTokenizer(std::unique_ptr<Tokenizer> tokenizer);
     
+    // Tokenizer configuration
+    void enableSIMD(bool enabled) { if (tokenizer_) tokenizer_->enableSIMD(enabled); }
+    void setStemmer(StemmerType type) { if (tokenizer_) tokenizer_->setStemmer(type); }
+    void setRemoveStopwords(bool enabled) { if (tokenizer_) tokenizer_->setRemoveStopwords(enabled); }
+    
 private:
     friend class Persistence;
     

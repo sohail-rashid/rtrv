@@ -6,7 +6,7 @@
 using namespace search_engine;
 
 int main(int argc, char* argv[]) {
-    std::string corpus_file = "../data/wikipedia_sample.txt";
+    std::string corpus_file = "../data/wikipedia_sample.json";
     
     if (argc >= 2) {
         corpus_file = argv[1];
