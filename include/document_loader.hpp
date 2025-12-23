@@ -21,7 +21,7 @@ public:
     Document createDocument(const std::unordered_map<std::string, std::string>& fields);
 
 private:
-    uint32_t next_doc_id_ = 0;  // Auto-incrementing document ID (uint32_t for 4B docs)
+    uint32_t next_doc_id_ = 1;  // Auto-incrementing document ID (uint32_t for 4B docs)
 };
 
 } // namespace search_engine

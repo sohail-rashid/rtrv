@@ -55,7 +55,7 @@ TEST_F(DocumentLoaderTest, LoadJSONL_SimpleObjects) {
     EXPECT_EQ(docs[1].getField("title"), "Second Document");
     
     // Check third document
-    EXPECT_EQ(docs[2].id, 2);
+    EXPECT_EQ(docs[2].id, 3);
     EXPECT_EQ(docs[2].getField("title"), "Third Document");
 }
 
@@ -142,14 +142,14 @@ TEST_F(DocumentLoaderTest, LoadCSV_SimpleData) {
     EXPECT_EQ(docs.size(), 3);
     
     // Check first document
-    EXPECT_EQ(docs[0].id, 0);
+    EXPECT_EQ(docs[0].id, 1);
     EXPECT_EQ(docs[0].getField("title"), "First Doc");
     EXPECT_EQ(docs[0].getField("author"), "John Doe");
     EXPECT_EQ(docs[0].getField("content"), "Content of first document");
     EXPECT_GT(docs[0].term_count, 0);
     
     // Check second document
-    EXPECT_EQ(docs[1].id, 1);
+    EXPECT_EQ(docs[1].id, 2);
     EXPECT_EQ(docs[1].getField("title"), "Second Doc");
 }
 
@@ -228,14 +228,14 @@ TEST_F(DocumentLoaderTest, CreateDocument) {
     
     auto doc = loader.createDocument(fields);
     
-    EXPECT_EQ(doc.id, 0);
+    EXPECT_EQ(doc.id, 1);
     EXPECT_EQ(doc.getField("title"), "Test Document");
     EXPECT_EQ(doc.getField("content"), "This is test content");
     EXPECT_GT(doc.term_count, 0);
     
     // Create another document - ID should increment
     auto doc2 = loader.createDocument(fields);
-    EXPECT_EQ(doc2.id, 1);
+    EXPECT_EQ(doc2.id, 2);
 }
 
 // Test term_count calculation
