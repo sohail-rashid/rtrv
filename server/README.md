@@ -113,12 +113,20 @@ All REST servers expose the same API:
 
 ### Search
 ```http
-GET /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>
+GET /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>
 ```
+
+**Parameters:**
+- `q` (required): Search query string
+- `algorithm` (optional): Ranking algorithm - `bm25` (default) or `tfidf`
+- `max_results` (optional): Maximum number of results to return (default: 10)
+- `use_top_k_heap` (optional): Use Top-K heap optimization - `true` (default) or `false`
+  - `true`: O(N log K) complexity with bounded priority queue
+  - `false`: O(N log N) complexity with full sorting
 
 **Example:**
 ```bash
-curl "http://localhost:8080/search?q=machine+learning&algorithm=bm25&max_results=10"
+curl "http://localhost:8080/search?q=machine+learning&algorithm=bm25&max_results=10&use_top_k_heap=true"
 ```
 
 **Response:**

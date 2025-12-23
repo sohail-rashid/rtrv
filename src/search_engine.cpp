@@ -1,5 +1,6 @@
 #include "search_engine.hpp"
 #include "persistence.hpp"
+#include "top_k_heap.hpp"
 
 namespace search_engine {
 
@@ -145,36 +146,86 @@ std::vector<SearchResult> SearchEngine::search(const std::string& query,
         ranker_to_use = ranker_registry_->getRanker("BM25");
     }
     
-    // Score all candidate documents
-    for (uint64_t doc_id : candidate_doc_ids) {
-        auto doc_it = documents_.find(doc_id);
-        if (doc_it != documents_.end()) {
-            double score = ranker_to_use->score(q, doc_it->second, stats);
-            
-            if (score > 0.0) {
+    // Branch: Use Top-K heap or traditional sorting
+    if (options.use_top_k_heap) {
+        // ============================================================
+        // TOP-K HEAP APPROACH: O(N log K) time, O(K) space
+        // ============================================================
+        BoundedPriorityQueue<ScoredDocument> top_k(options.max_results);
+        
+        // Score all candidates and maintain top-K
+        for (uint64_t doc_id : candidate_doc_ids) {
+            auto doc_it = documents_.find(doc_id);
+            if (doc_it != documents_.end()) {
+                double score = ranker_to_use->score(q, doc_it->second, stats);
+                
+                if (score > 0.0) {
+                    // Only add if better than worst in heap (or heap not full)
+                    if (!top_k.isFull() || score > top_k.minScore()) {
+                        top_k.push({doc_id, score});
+                    }
+                }
+            }
+        }
+        
+        // Extract sorted results from heap (descending order)
+        auto sorted_docs = top_k.getSorted();
+        
+        // Build final results
+        results.reserve(sorted_docs.size());
+        for (const auto& scored_doc : sorted_docs) {
+            auto doc_it = documents_.find(scored_doc.doc_id);
+            if (doc_it != documents_.end()) {
                 SearchResult result;
                 result.document = doc_it->second;
-                result.score = score;
+                result.score = scored_doc.score;
                 
                 if (options.explain_scores) {
                     result.explanation = "Ranker: " + ranker_to_use->getName() + 
-                                       ", Score: " + std::to_string(score);
+                                       ", Score: " + std::to_string(scored_doc.score) +
+                                       ", Method: Top-K Heap (O(N log K))";
                 }
                 
                 results.push_back(result);
             }
         }
-    }
-    
-    // Sort by score (descending)
-    std::sort(results.begin(), results.end(),
-              [](const SearchResult& a, const SearchResult& b) {
-                  return a.score > b.score;
-              });
-    
-    // Return top-K results
-    if (results.size() > options.max_results) {
-        results.resize(options.max_results);
+        
+    } else {
+        // ============================================================
+        // TRADITIONAL APPROACH: O(N log N) time, O(N) space
+        // ============================================================
+        // Score all candidate documents
+        for (uint64_t doc_id : candidate_doc_ids) {
+            auto doc_it = documents_.find(doc_id);
+            if (doc_it != documents_.end()) {
+                double score = ranker_to_use->score(q, doc_it->second, stats);
+                
+                if (score > 0.0) {
+                    SearchResult result;
+                    result.document = doc_it->second;
+                    result.score = score;
+                    
+                    if (options.explain_scores) {
+                        result.explanation = "Ranker: " + ranker_to_use->getName() + 
+                                           ", Score: " + std::to_string(score) +
+                                           ", Method: Full Sort (O(N log N))";
+                    }
+                    
+                    results.push_back(result);
+                }
+            }
+        }
+        
+        // Sort by score (descending)
+        std::sort(results.begin(), results.end(),
+                  [](const SearchResult& a, const SearchResult& b) {
+                      return a.score > b.score;
+                  });
+        
+        // Return top-K results
+        if (results.size() > options.max_results) {
+            results.resize(options.max_results);
+        }
     }
     
     return results;

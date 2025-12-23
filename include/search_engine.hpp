@@ -18,6 +18,7 @@ struct SearchOptions {
     std::string ranker_name = "";  // Empty = use default ranker
     size_t max_results = 10;
     bool explain_scores = false;
+    bool use_top_k_heap = true;  // Use bounded priority queue for Top-K retrieval
     
     // Deprecated: Use ranker_name instead
     enum RankingAlgorithm { TF_IDF, BM25 };
