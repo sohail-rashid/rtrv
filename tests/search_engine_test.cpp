@@ -334,3 +334,212 @@ TEST_F(SearchEngineTest, SnapshotEmptyEngine) {
     std::remove(filepath.c_str());
 }
 
+// ============================================================================
+// Top-K Heap Tests
+// ============================================================================
+
+TEST_F(SearchEngineTest, TopKHeapVsTraditional) {
+    // Index multiple documents
+    for (int i = 0; i < 20; ++i) {
+        Document doc{0, {{"content", "term" + std::to_string(i % 5) + " document number " + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+    
+    // Search with Top-K heap
+    SearchOptions heap_opts;
+    heap_opts.max_results = 5;
+    heap_opts.use_top_k_heap = true;
+    auto heap_results = engine.search("term1", heap_opts);
+    
+    // Search with traditional sort
+    SearchOptions sort_opts;
+    sort_opts.max_results = 5;
+    sort_opts.use_top_k_heap = false;
+    auto sort_results = engine.search("term1", sort_opts);
+    
+    // Both should return same number of results
+    EXPECT_EQ(heap_results.size(), sort_results.size());
+    
+    // Both should have same scores (though order may differ for equal scores)
+    ASSERT_FALSE(heap_results.empty());
+    ASSERT_FALSE(sort_results.empty());
+    
+    // Collect scores from both results
+    std::multiset<double> heap_scores;
+    std::multiset<double> sort_scores;
+    for (const auto& r : heap_results) {
+        heap_scores.insert(r.score);
+    }
+    for (const auto& r : sort_results) {
+        sort_scores.insert(r.score);
+    }
+    
+    // Scores should match
+    EXPECT_EQ(heap_scores, sort_scores);
+}
+
+TEST_F(SearchEngineTest, TopKHeapWithSmallK) {
+    // Index 100 documents
+    for (int i = 0; i < 100; ++i) {
+        Document doc{0, {{"content", "common rare" + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+    
+    // Request only top 3 results
+    SearchOptions opts;
+    opts.max_results = 3;
+    opts.use_top_k_heap = true;
+    
+    auto results = engine.search("common", opts);
+    
+    EXPECT_LE(results.size(), 3);
+    
+    // Verify descending order
+    for (size_t i = 0; i < results.size() - 1; ++i) {
+        EXPECT_GE(results[i].score, results[i + 1].score);
+    }
+}
+
+TEST_F(SearchEngineTest, TopKHeapLargeDataset) {
+    // Index many documents to test O(N log K) efficiency
+    for (int i = 0; i < 500; ++i) {
+        std::string content = "document " + std::to_string(i);
+        if (i % 10 == 0) {
+            content += " important keyword";
+        }
+        Document doc{0, {{"content", content}}};
+        engine.indexDocument(doc);
+    }
+    
+    SearchOptions opts;
+    opts.max_results = 10;
+    opts.use_top_k_heap = true;
+    
+    auto results = engine.search("important keyword", opts);
+    
+    EXPECT_LE(results.size(), 10);
+    EXPECT_GT(results.size(), 0);
+    
+    // All results should have positive scores
+    for (const auto& result : results) {
+        EXPECT_GT(result.score, 0.0);
+    }
+}
+
+TEST_F(SearchEngineTest, TopKHeapExplainScores) {
+    // Index a few documents
+    Document doc1{0, {{"content", "machine learning artificial intelligence"}}};
+    Document doc2{0, {{"content", "machine learning deep neural networks"}}};
+    Document doc3{0, {{"content", "machine learning basics tutorial"}}};
+    
+    engine.indexDocument(doc1);
+    engine.indexDocument(doc2);
+    engine.indexDocument(doc3);
+    
+    // Search with explanations using heap
+    SearchOptions heap_opts;
+    heap_opts.max_results = 3;
+    heap_opts.use_top_k_heap = true;
+    heap_opts.explain_scores = true;
+    
+    auto heap_results = engine.search("machine learning", heap_opts);
+    ASSERT_FALSE(heap_results.empty());
+    EXPECT_FALSE(heap_results[0].explanation.empty());
+    EXPECT_NE(heap_results[0].explanation.find("Top-K Heap"), std::string::npos);
+    
+    // Search with explanations using sort
+    SearchOptions sort_opts;
+    sort_opts.max_results = 3;
+    sort_opts.use_top_k_heap = false;
+    sort_opts.explain_scores = true;
+    
+    auto sort_results = engine.search("machine learning", sort_opts);
+    ASSERT_FALSE(sort_results.empty());
+    EXPECT_FALSE(sort_results[0].explanation.empty());
+    EXPECT_NE(sort_results[0].explanation.find("Full Sort"), std::string::npos);
+}
+
+TEST_F(SearchEngineTest, TopKHeapWithDifferentRankers) {
+    // Index documents with clear score differences
+    Document doc1{0, {{"content", "apple orange banana"}}};
+    Document doc2{0, {{"content", "apple apple apple"}}};
+    Document doc3{0, {{"content", "orange banana fruit"}}};
+    
+    engine.indexDocument(doc1);
+    engine.indexDocument(doc2);
+    engine.indexDocument(doc3);
+    
+    // Test with BM25 (default)
+    SearchOptions bm25_opts;
+    bm25_opts.use_top_k_heap = true;
+    bm25_opts.ranker_name = "BM25";
+    auto bm25_results = engine.search("apple", bm25_opts);
+    EXPECT_FALSE(bm25_results.empty());
+    
+    // Test with TF-IDF
+    SearchOptions tfidf_opts;
+    tfidf_opts.use_top_k_heap = true;
+    tfidf_opts.ranker_name = "TF-IDF";
+    auto tfidf_results = engine.search("apple", tfidf_opts);
+    EXPECT_FALSE(tfidf_results.empty());
+    
+    // Both should find documents containing "apple"
+    // Doc1 and Doc2 both contain "apple", doc2 has more occurrences
+    // Just verify we get results with positive scores
+    EXPECT_GT(bm25_results[0].score, 0.0);
+    EXPECT_GT(tfidf_results[0].score, 0.0);
+    
+    // Verify doc2 (with most "apple" occurrences) is in the results
+    bool doc2_in_bm25 = false;
+    bool doc2_in_tfidf = false;
+    for (const auto& r : bm25_results) {
+        if (r.document.id == 2) doc2_in_bm25 = true;
+    }
+    for (const auto& r : tfidf_results) {
+        if (r.document.id == 2) doc2_in_tfidf = true;
+    }
+    EXPECT_TRUE(doc2_in_bm25);
+    EXPECT_TRUE(doc2_in_tfidf);
+}
+
+TEST_F(SearchEngineTest, TopKHeapEmptyResults) {
+    // Index a document
+    Document doc{0, {{"content", "hello world"}}};
+    engine.indexDocument(doc);
+    
+    // Search for non-existent term
+    SearchOptions opts;
+    opts.use_top_k_heap = true;
+    auto results = engine.search("nonexistent", opts);
+    
+    EXPECT_TRUE(results.empty());
+}
+
+TEST_F(SearchEngineTest, TopKHeapSingleResult) {
+    // Index one document
+    Document doc{0, {{"content", "unique document content"}}};
+    engine.indexDocument(doc);
+    
+    SearchOptions opts;
+    opts.max_results = 10;
+    opts.use_top_k_heap = true;
+    auto results = engine.search("unique", opts);
+    
+    EXPECT_EQ(results.size(), 1);
+    EXPECT_EQ(results[0].document.id, 1);
+}
+
+TEST_F(SearchEngineTest, TopKHeapExactlyK) {
+    // Index exactly K documents
+    for (int i = 0; i < 5; ++i) {
+        Document doc{0, {{"content", "search term document " + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+    
+    SearchOptions opts;
+    opts.max_results = 5;
+    opts.use_top_k_heap = true;
+    auto results = engine.search("search term", opts);
+    
+    EXPECT_EQ(results.size(), 5);
+}

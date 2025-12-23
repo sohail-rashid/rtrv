@@ -20,6 +20,7 @@ void handleSearch(const HttpRequestPtr& req,
     auto query = req->getParameter("q");
     auto algorithm = req->getParameter("algorithm");
     auto max_results_str = req->getParameter("max_results");
+    auto use_heap_str = req->getParameter("use_top_k_heap");
     
     Json::Value response;
     
@@ -37,6 +38,9 @@ void handleSearch(const HttpRequestPtr& req,
     }
     if (!max_results_str.empty()) {
         options.max_results = std::stoi(max_results_str);
+    }
+    if (!use_heap_str.empty()) {
+        options.use_top_k_heap = (use_heap_str == "true" || use_heap_str == "1");
     }
     
     auto results = g_engine->search(query, options);
@@ -267,7 +271,7 @@ int main(int argc, char* argv[]) {
     std::cout << "=== Search Engine REST Server (Drogon) ===\n";
     std::cout << "Server will listen on http://localhost:" << port << "\n";
     std::cout << "Endpoints:\n";
-    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>\n";
+    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>\n";
     std::cout << "  GET    /stats\n";
     std::cout << "  POST   /index - body: {\"id\": number, \"content\": \"text\"}\n";
     std::cout << "  DELETE /delete/<id>\n";

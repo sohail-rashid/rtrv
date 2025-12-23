@@ -76,7 +76,8 @@ void handleSearch(SearchEngine& engine, const std::string& query) {
         return;
     }
     
-    auto results = engine.search(query);
+    SearchOptions options;  // Use default options (use_top_k_heap = true)
+    auto results = engine.search(query, options);
     
     std::cout << "{\n  \"results\": [\n";
     for (size_t i = 0; i < results.size(); ++i) {

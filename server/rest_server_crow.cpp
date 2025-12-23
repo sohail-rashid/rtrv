@@ -110,6 +110,12 @@ int main(int argc, char* argv[]) {
             options.max_results = std::stoi(std::string(max_results));
         }
         
+        auto use_heap = req.url_params.get("use_top_k_heap");
+        if (use_heap) {
+            std::string heap_val = std::string(use_heap);
+            options.use_top_k_heap = (heap_val == "true" || heap_val == "1");
+        }
+        
         auto results = g_engine->search(q, options);
         
         // Build JSON response
@@ -386,7 +392,7 @@ int main(int argc, char* argv[]) {
     std::cout << "=== Search Engine REST Server (Crow) ===\n";
     std::cout << "Server listening on http://localhost:" << port << "\n";
     std::cout << "Endpoints:\n";
-    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>\n";
+    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>\n";
     std::cout << "  GET    /stats\n";
     std::cout << "  POST   /index - body: {\"id\": number, \"content\": \"text\"}\n";
     std::cout << "  DELETE /delete/<id>\n";

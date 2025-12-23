@@ -75,6 +75,7 @@ std::string handleSearch(SearchEngine& engine, const std::string& query_string) 
     std::string q = getQueryParam(query_string, "q");
     std::string algorithm = getQueryParam(query_string, "algorithm");
     std::string max_results_str = getQueryParam(query_string, "max_results");
+    std::string use_heap_str = getQueryParam(query_string, "use_top_k_heap");
     
     if (q.empty()) {
         return "{\"error\": \"Missing query parameter\"}";
@@ -86,6 +87,9 @@ std::string handleSearch(SearchEngine& engine, const std::string& query_string) 
     }
     if (!max_results_str.empty()) {
         options.max_results = std::stoi(max_results_str);
+    }
+    if (!use_heap_str.empty()) {
+        options.use_top_k_heap = (use_heap_str == "true" || use_heap_str == "1");
     }
     
     auto results = engine.search(q, options);
@@ -291,11 +295,11 @@ void handleClient(int client_socket, SearchEngine& engine) {
     if (method == "OPTIONS") {
         response_body = "";
     } else if (method == "GET" && path == "/") {
-        response_body = R"({
+        response_body = R"json({
   "service": "Search Engine REST API",
   "version": "1.0",
   "endpoints": {
-    "GET /search": "Search documents. Params: q (query), algorithm (bm25|tfidf), max_results",
+    "GET /search": "Search documents. Params: q (query), algorithm (bm25|tfidf), max_results, use_top_k_heap (true|false)",
     "GET /stats": "Get index statistics",
     "POST /index": "Index a document. Body: {\"id\": number, \"content\": \"text\"}",
     "DELETE /delete/<id>": "Delete a document by ID",
@@ -305,7 +309,7 @@ void handleClient(int client_socket, SearchEngine& engine) {
     "POST /skip/rebuild/<term>": "Rebuild skip pointers for specific term",
     "GET /skip/stats?term=<term>": "Get skip pointer statistics for a term"
   }
-})";
+})json";
     } else if (method == "GET" && path.find("/search") == 0) {
         size_t query_pos = path.find('?');
         std::string query_string = (query_pos != std::string::npos) ? path.substr(query_pos + 1) : "";
@@ -440,7 +444,7 @@ int main(int argc, char* argv[]) {
     std::cout << "=== Search Engine REST Server ===\n";
     std::cout << "Server listening on http://localhost:" << port << "\n";
     std::cout << "Endpoints:\n";
-    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>\n";
+    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>\n";
     std::cout << "  GET    /stats\n";
     std::cout << "  POST   /index - body: {\"id\": number, \"content\": \"text\"}\n";
     std::cout << "  DELETE /delete/<id>\n";
