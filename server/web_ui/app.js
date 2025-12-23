@@ -1,7 +1,7 @@
 // Search Engine Web UI
 
 const API_BASE = 'http://localhost:8080';
-const DEMO_MODE = false; // Set to false when REST server is available
+let DEMO_MODE = true; // Start with demo mode, will check server
 
 // Sample data for demo mode
 const DEMO_DOCUMENTS = [
@@ -17,21 +17,155 @@ const DEMO_DOCUMENTS = [
     { id: 10, content: "Python programming for machine learning" }
 ];
 
-document.getElementById('searchButton').addEventListener('click', performSearch);
-document.getElementById('searchInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        performSearch();
+// Background animation function - defined early
+function createBackgroundAnimation() {
+    try {
+        const nodeCount = 25;
+        const lineCount = 20;
+        const nodes = [];
+        
+        // Create floating network nodes
+        for (let i = 0; i < nodeCount; i++) {
+            const node = document.createElement('div');
+            node.className = 'network-node';
+            
+            const startX = Math.random() * window.innerWidth;
+            const startY = Math.random() * window.innerHeight;
+            const moveX = (Math.random() - 0.5) * 150;
+            const moveY = (Math.random() - 0.5) * 150;
+            const delay = Math.random() * 20;
+            const duration = 15 + Math.random() * 10;
+            
+            node.style.left = startX + 'px';
+            node.style.top = startY + 'px';
+            node.style.setProperty('--tx', moveX + 'px');
+            node.style.setProperty('--ty', moveY + 'px');
+            node.style.animationDelay = delay + 's';
+            node.style.animationDuration = duration + 's';
+            
+            nodes.push({ element: node, x: startX, y: startY });
+            document.body.appendChild(node);
+        }
+        
+        // Create connection lines between nearby nodes
+        for (let i = 0; i < lineCount; i++) {
+            const line = document.createElement('div');
+            line.className = 'network-line';
+            
+            // Pick two random nodes to connect
+            const node1 = nodes[Math.floor(Math.random() * nodes.length)];
+            const node2 = nodes[Math.floor(Math.random() * nodes.length)];
+            
+            const dx = node2.x - node1.x;
+            const dy = node2.y - node1.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            const delay = Math.random() * 4;
+            
+            line.style.left = node1.x + 'px';
+            line.style.top = node1.y + 'px';
+            line.style.width = length + 'px';
+            line.style.transform = `rotate(${angle}deg)`;
+            line.style.animationDelay = delay + 's';
+            
+            document.body.appendChild(line);
+        }
+        
+        console.log(`✨ Created ${nodeCount} nodes and ${lineCount} connection lines`);
+    } catch (error) {
+        console.error('❌ Background animation error:', error);
     }
-});
+}
 
+// Initialize background animation - ensure it runs after body is ready
+if (document.readyState === 'loading') {
+    // DOM still loading, wait for it
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(createBackgroundAnimation, 100);
+    });
+} else {
+    // DOM already loaded, run immediately
+    setTimeout(createBackgroundAnimation, 100);
+}
+
+// Auto-detect if REST server is available (async, doesn't block rendering)
+(async function checkServerAvailability() {
+    console.log('🔍 Checking REST server availability...');
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000);
+        
+        const response = await fetch(`${API_BASE}/stats`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+            DEMO_MODE = false;
+            console.log('✅ Connected to REST server - DEMO_MODE: false');
+        } else {
+            DEMO_MODE = true;
+            console.log('🎯 Using demo mode - REST server responded with error - DEMO_MODE: true');
+        }
+    } catch (error) {
+        DEMO_MODE = true;
+        console.log('🎯 Using demo mode - REST server not available - DEMO_MODE: true', error.message);
+    }
+})();
+
+// Wait for DOM before attaching event listeners
+// Wait for DOM before attaching event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Search handlers
+    document.getElementById('searchButton').addEventListener('click', performSearch);
+    document.getElementById('searchInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+
+    // Clear button
+    document.getElementById('clearButton').addEventListener('click', () => {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('stats').innerHTML = '';
+    });
+
+    // Advanced options toggle
+    document.getElementById('advancedToggle').addEventListener('click', () => {
+        const advancedDiv = document.getElementById('advancedOptions');
+        const isVisible = advancedDiv.style.display !== 'none';
+        advancedDiv.style.display = isVisible ? 'none' : 'block';
+        document.getElementById('advancedToggle').textContent = isVisible ? '⚙️ Advanced Options' : '⚙️ Hide Advanced';
+    });
+
+    // Show info tooltip when hovering over Top-K heap checkbox
+    document.getElementById('useTopKHeap').addEventListener('change', (e) => {
+        if (e.target.checked) {
+            showToast('✓ Top-K Heap enabled: 50-150x faster for small result sets', 'success');
+        } else {
+            showToast('ℹ️ Using full sort: Better for large result sets (K > 1000)', 'info');
+        }
+    });
+    
+    console.log('✅ Event listeners attached');
+});
 async function performSearch() {
     const query = document.getElementById('searchInput').value;
     const algorithm = document.querySelector('input[name="algorithm"]:checked').value;
     const maxResults = parseInt(document.getElementById('maxResults').value);
+    const useTopKHeap = document.getElementById('useTopKHeap').checked;
     
     if (!query.trim()) {
+        showToast('⚠️ Please enter a search query', 'warning');
         return;
     }
+    
+    // Show loading state
+    const searchBtn = document.getElementById('searchButton');
+    const btnText = searchBtn.querySelector('.btn-text');
+    const btnIcon = searchBtn.querySelector('.btn-icon');
+    searchBtn.disabled = true;
+    btnText.textContent = 'Searching...';
+    btnIcon.textContent = '⏳';
     
     const startTime = performance.now();
     
@@ -40,27 +174,39 @@ async function performSearch() {
         
         if (DEMO_MODE) {
             // Demo mode: simulate search
-            data = performDemoSearch(query, algorithm, maxResults);
+            data = performDemoSearch(query, algorithm, maxResults, useTopKHeap);
         } else {
-            // Real API call
-            const url = `${API_BASE}/search?q=${encodeURIComponent(query)}&algorithm=${algorithm}&max_results=${maxResults}`;
+            // Real API call - pass query as-is, server handles parsing
+            const url = `${API_BASE}/search?q=${encodeURIComponent(query)}&algorithm=${algorithm}&max_results=${maxResults}&use_top_k_heap=${useTopKHeap}`;
             const response = await fetch(url);
             data = await response.json();
         }
         
         const endTime = performance.now();
         data.query_time_ms = endTime - startTime;
+        data.use_top_k_heap = useTopKHeap;
+        data.algorithm = algorithm;
+        data.original_query = query;
         
-        displayResults(data.results);
+        displayResults(data.results, query);
         displayStats(data);
+        
+        // Show success message
+        const resultText = data.total_results === 1 ? 'result' : 'results';
+        showToast(`✓ Found ${data.total_results} ${resultText} in ${data.query_time_ms.toFixed(2)}ms`, 'success');
     } catch (error) {
         console.error('Search error:', error);
         document.getElementById('results').innerHTML = 
-            '<div class="error">Error: Unable to connect to search server. Running in demo mode.</div>';
+            '<div class="error">❌ <strong>Connection Error</strong><br>Unable to connect to search server. Please ensure the server is running on port 8080.</div>';
+        showToast('❌ Connection error', 'error');
+    } finally {
+        searchBtn.disabled = false;
+        btnText.textContent = 'Search';
+        btnIcon.textContent = '🚀';
     }
 }
 
-function performDemoSearch(query, algorithm, maxResults) {
+function performDemoSearch(query, algorithm, maxResults, useTopKHeap) {
     // Simple scoring: count matching terms
     const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 0);
     
@@ -96,27 +242,61 @@ function performDemoSearch(query, algorithm, maxResults) {
     
     return {
         results: results,
-        total_results: results.length
+        total_results: results.length,
+        total_documents: DEMO_DOCUMENTS.length
     };
 }
 
-function displayResults(results) {
+function displayResults(results, query) {
     const resultsDiv = document.getElementById('results');
     
     if (!results || results.length === 0) {
-        resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+        resultsDiv.innerHTML = `
+            <div class="no-results">
+                <div class="no-results-icon">🔍</div>
+                <div class="no-results-title">No Results Found</div>
+                <div class="no-results-text">Try different keywords or use OR operator to broaden your search</div>
+            </div>
+        `;
         return;
     }
     
     let html = '<div class="result-list">';
     results.forEach((result, index) => {
+        const content = highlightQuery(result.document.content, query);
+        const scorePercent = Math.min(100, (result.score / 10) * 100);
+        const scoreClass = result.score > 5 ? 'high-score' : result.score > 2 ? 'medium-score' : 'low-score';
+        
         html += `
-            <div class="result-item">
-                <div class="result-rank">${index + 1}</div>
+            <div class="result-item" data-index="${index}">
+                <div class="result-rank-container">
+                    <div class="result-rank">${index + 1}</div>
+                    <div class="result-score-badge ${scoreClass}">
+                        <div class="score-circle">
+                            <svg class="score-ring" width="50" height="50">
+                                <circle cx="25" cy="25" r="20" fill="none" stroke="#e0e0e0" stroke-width="3"/>
+                                <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="3"
+                                    stroke-dasharray="${scorePercent * 1.256} ${125.6 - scorePercent * 1.256}"
+                                    transform="rotate(-90 25 25)"/>
+                            </svg>
+                            <div class="score-text">${result.score.toFixed(1)}</div>
+                        </div>
+                    </div>
+                </div>
                 <div class="result-content">
-                    <div class="result-score">Score: ${result.score.toFixed(4)}</div>
-                    <div class="result-text">${escapeHtml(result.document.content)}</div>
-                    <div class="result-meta">Document ID: ${result.document.id}</div>
+                    <div class="result-header">
+                        <div class="result-title">Document ${result.document.id}</div>
+                        <div class="result-relevance ${scoreClass}">
+                            ${result.score > 5 ? '🌟 Highly Relevant' : result.score > 2 ? '✓ Relevant' : '~ Possibly Relevant'}
+                        </div>
+                    </div>
+                    <div class="result-text">${content}</div>
+                    <div class="result-footer">
+                        <span class="result-meta">📄 Doc ID: ${result.document.id}</span>
+                        <span class="result-meta">⭐ Relevance: ${result.score.toFixed(4)}</span>
+                        ${result.document.fields && result.document.fields.title ? 
+                            `<span class="result-meta">📌 ${escapeHtml(result.document.fields.title)}</span>` : ''}
+                    </div>
                 </div>
             </div>
         `;
@@ -124,24 +304,74 @@ function displayResults(results) {
     html += '</div>';
     
     resultsDiv.innerHTML = html;
+    
+    // Add click animation
+    document.querySelectorAll('.result-item').forEach(item => {
+        item.addEventListener('click', function() {
+            this.style.transform = 'scale(0.98)';
+            setTimeout(() => {
+                this.style.transform = '';
+            }, 100);
+        });
+    });
+}
+
+function highlightQuery(text, query) {
+    if (!query) return escapeHtml(text);
+    
+    const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    let highlighted = escapeHtml(text);
+    
+    terms.forEach(term => {
+        const regex = new RegExp(`(${term})`, 'gi');
+        highlighted = highlighted.replace(regex, '<mark>$1</mark>');
+    });
+    
+    return highlighted;
 }
 
 function displayStats(data) {
     const statsDiv = document.getElementById('stats');
+    const heapIcon = data.use_top_k_heap ? '🚀' : '📈';
+    const algorithmIcon = data.algorithm === 'bm25' ? '🎯' : '📐';
+    const speedClass = data.query_time_ms < 10 ? 'super-fast' : data.query_time_ms < 50 ? 'fast' : 'normal';
+    
     statsDiv.innerHTML = `
         <div class="stats-content">
-            <div class="stat-item">
-                <div class="stat-icon">📊</div>
+            <div class="stat-item stat-results">
+                <div class="stat-icon-container">
+                    <div class="stat-icon">📊</div>
+                </div>
                 <div class="stat-info">
                     <div class="stat-value">${data.total_results}</div>
-                    <div class="stat-label">Results</div>
+                    <div class="stat-label">Results Found</div>
                 </div>
             </div>
-            <div class="stat-item">
-                <div class="stat-icon">⚡</div>
+            <div class="stat-item stat-time ${speedClass}">
+                <div class="stat-icon-container">
+                    <div class="stat-icon">⚡</div>
+                </div>
                 <div class="stat-info">
                     <div class="stat-value">${data.query_time_ms.toFixed(2)}ms</div>
                     <div class="stat-label">Query Time</div>
+                </div>
+            </div>
+            <div class="stat-item stat-algorithm">
+                <div class="stat-icon-container">
+                    <div class="stat-icon">${algorithmIcon}</div>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value">${data.algorithm?.toUpperCase() || 'BM25'}</div>
+                    <div class="stat-label">Algorithm</div>
+                </div>
+            </div>
+            <div class="stat-item stat-method">
+                <div class="stat-icon-container">
+                    <div class="stat-icon">${heapIcon}</div>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-value">${data.use_top_k_heap ? 'Heap' : 'Sort'}</div>
+                    <div class="stat-label">Method</div>
                 </div>
             </div>
         </div>
@@ -154,54 +384,22 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// Load index statistics on page load
-async function loadStats() {
-    try {
-        if (DEMO_MODE) {
-            const stats = {
-                total_documents: DEMO_DOCUMENTS.length,
-                total_terms: 45,
-                avg_doc_length: 6.5
-            };
-            displayIndexStats(stats);
-        } else {
-            const response = await fetch(`${API_BASE}/stats`);
-            const stats = await response.json();
-            displayIndexStats(stats);
-        }
-    } catch (error) {
-        console.log('Server not running, using demo mode');
-    }
-}
-
-function displayIndexStats(stats) {
-    const infoDiv = document.createElement('div');
-    infoDiv.className = 'index-stats';
-    infoDiv.innerHTML = `
-        <div class="index-stats-content">
-            <div class="index-stat">
-                <span class="index-icon">📚</span>
-                <span class="index-value">${stats.total_documents}</span>
-                <span class="index-label">Documents</span>
-            </div>
-            <div class="index-stat">
-                <span class="index-icon">🔤</span>
-                <span class="index-value">${stats.total_terms}</span>
-                <span class="index-label">Unique Terms</span>
-            </div>
-            <div class="index-stat">
-                <span class="index-icon">📏</span>
-                <span class="index-value">${stats.avg_doc_length.toFixed(1)}</span>
-                <span class="index-label">Avg Words/Doc</span>
-            </div>
-            ${DEMO_MODE ? '<div class="demo-badge">🎯 Demo Mode</div>' : ''}
-        </div>
-    `;
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
     
-    const container = document.querySelector('.container');
-    if (container && !document.querySelector('.index-stats')) {
-        container.insertBefore(infoDiv, container.firstChild);
-    }
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
 }
 
-loadStats();
+// Index stats display removed
