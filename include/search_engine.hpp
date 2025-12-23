@@ -32,6 +32,15 @@ struct SearchResult {
     Document document;
     double score;
     std::string explanation;  // Optional score breakdown
+    
+    // Comparison operators for sorting and heap operations
+    bool operator>(const SearchResult& other) const {
+        return score > other.score;  // Higher scores are "greater"
+    }
+    
+    bool operator<(const SearchResult& other) const {
+        return score < other.score;
+    }
 };
 
 /**

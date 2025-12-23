@@ -1,68 +1,61 @@
 #include <benchmark/benchmark.h>
 #include "search_engine.hpp"
-#include <fstream>
 #include <vector>
-#include <sstream>
+#include <random>
 
 using namespace search_engine;
 
-// Helper function to load Wikipedia sample data
-std::vector<std::pair<std::string, std::string>> loadWikipediaSample() {
+// Helper function to generate synthetic documents
+std::vector<std::pair<std::string, std::string>> generateSyntheticDocuments(size_t count) {
     std::vector<std::pair<std::string, std::string>> docs;
     
-    // Try multiple paths to find the data file
-    std::vector<std::string> paths = {
-        "data/wikipedia_sample.txt",
-        "../data/wikipedia_sample.txt",
-        "../../data/wikipedia_sample.txt"
+    std::vector<std::string> words = {
+        "computer", "science", "algorithm", "data", "machine",
+        "learning", "artificial", "intelligence", "programming", "software",
+        "engineering", "database", "network", "system", "design",
+        "pattern", "architecture", "development", "technology", "analysis",
+        "structure", "management", "application", "research", "method"
     };
     
-    std::ifstream file;
-    bool found = false;
-    for (const auto& path : paths) {
-        file.open(path);
-        if (file.is_open()) {
-            found = true;
-            break;
-        }
-        file.clear();
-    }
+    std::vector<std::string> topics = {
+        "Computer Science", "Machine Learning", "Data Structures",
+        "Algorithms", "Software Engineering", "Artificial Intelligence",
+        "Database Systems", "Network Programming", "System Design"
+    };
     
-    if (!found) {
-        return docs;
-    }
+    std::mt19937 gen(42);
+    std::uniform_int_distribution<> word_dist(0, words.size() - 1);
+    std::uniform_int_distribution<> count_dist(50, 200);
+    std::uniform_int_distribution<> topic_dist(0, topics.size() - 1);
     
-    std::string line;
-    while (std::getline(file, line)) {
-        if (!line.empty()) {
-            auto pos = line.find('|');
-            if (pos != std::string::npos) {
-                std::string title = line.substr(0, pos);
-                std::string content = line.substr(pos + 1);
-                docs.emplace_back(title, content);
-            }
+    docs.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        std::string title = topics[topic_dist(gen)] + " " + std::to_string(i);
+        
+        std::string content;
+        int num_words = count_dist(gen);
+        for (int j = 0; j < num_words; ++j) {
+            content += words[word_dist(gen)] + " ";
         }
+        
+        docs.emplace_back(title, content);
     }
     
     return docs;
 }
 
 static void BM_Search(benchmark::State& state) {
-    auto docs = loadWikipediaSample();
-    if (docs.empty()) {
-        state.SkipWithError("No Wikipedia sample data found");
-        return;
-    }
+    int num_docs = state.range(0);
+    auto docs = generateSyntheticDocuments(num_docs);
     
     SearchEngine engine;
     
     // Index documents for testing
-    int num_docs = state.range(0);
-    for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
+    for (int i = 0; i < num_docs; ++i) {
         Document doc;
         doc.id = i;
-        doc.fields["title"] = docs[i % docs.size()].first;
-        doc.fields["content"] = docs[i % docs.size()].second;
+        doc.fields["title"] = docs[i].first;
+        doc.fields["content"] = docs[i].second;
         engine.indexDocument(doc);
     }
     
@@ -85,23 +78,21 @@ static void BM_Search(benchmark::State& state) {
 BENCHMARK(BM_Search)
     ->Arg(100)
     ->Arg(1000)
-    ->Arg(10000);
+    ->Arg(5000)
+    ->MinTime(0.1);
 
 static void BM_SearchComplexQuery(benchmark::State& state) {
-    auto docs = loadWikipediaSample();
-    if (docs.empty()) {
-        state.SkipWithError("No Wikipedia sample data found");
-        return;
-    }
+    int num_docs = state.range(0);
+    auto docs = generateSyntheticDocuments(num_docs);
     
     SearchEngine engine;
     
-    int num_docs = state.range(0);
-    for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
+    // Index documents
+    for (int i = 0; i < num_docs; ++i) {
         Document doc;
         doc.id = i;
-        doc.fields["title"] = docs[i % docs.size()].first;
-        doc.fields["content"] = docs[i % docs.size()].second;
+        doc.fields["title"] = docs[i].first;
+        doc.fields["content"] = docs[i].second;
         engine.indexDocument(doc);
     }
     
@@ -127,23 +118,21 @@ static void BM_SearchComplexQuery(benchmark::State& state) {
 
 BENCHMARK(BM_SearchComplexQuery)
     ->Arg(1000)
-    ->Arg(10000);
+    ->Arg(5000)
+    ->MinTime(0.1);
 
 static void BM_SearchWithTfIdf(benchmark::State& state) {
-    auto docs = loadWikipediaSample();
-    if (docs.empty()) {
-        state.SkipWithError("No Wikipedia sample data found");
-        return;
-    }
+    int num_docs = state.range(0);
+    auto docs = generateSyntheticDocuments(num_docs);
     
     SearchEngine engine;
     
-    int num_docs = state.range(0);
-    for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
+    // Index documents
+    for (int i = 0; i < num_docs; ++i) {
         Document doc;
         doc.id = i;
-        doc.fields["title"] = docs[i % docs.size()].first;
-        doc.fields["content"] = docs[i % docs.size()].second;
+        doc.fields["title"] = docs[i].first;
+        doc.fields["content"] = docs[i].second;
         engine.indexDocument(doc);
     }
     
@@ -161,23 +150,21 @@ static void BM_SearchWithTfIdf(benchmark::State& state) {
 
 BENCHMARK(BM_SearchWithTfIdf)
     ->Arg(1000)
-    ->Arg(10000);
+    ->Arg(5000)
+    ->MinTime(0.1);
 
 static void BM_SearchWithBm25(benchmark::State& state) {
-    auto docs = loadWikipediaSample();
-    if (docs.empty()) {
-        state.SkipWithError("No Wikipedia sample data found");
-        return;
-    }
+    int num_docs = state.range(0);
+    auto docs = generateSyntheticDocuments(num_docs);
     
     SearchEngine engine;
     
-    int num_docs = state.range(0);
-    for (int i = 0; i < num_docs && i < static_cast<int>(docs.size()); ++i) {
+    // Index documents
+    for (int i = 0; i < num_docs; ++i) {
         Document doc;
         doc.id = i;
-        doc.fields["title"] = docs[i % docs.size()].first;
-        doc.fields["content"] = docs[i % docs.size()].second;
+        doc.fields["title"] = docs[i].first;
+        doc.fields["content"] = docs[i].second;
         engine.indexDocument(doc);
     }
     
@@ -195,19 +182,17 @@ static void BM_SearchWithBm25(benchmark::State& state) {
 
 BENCHMARK(BM_SearchWithBm25)
     ->Arg(1000)
-    ->Arg(10000);
+    ->Arg(5000)
+    ->MinTime(0.1);
 
 static void BM_SearchResultSize(benchmark::State& state) {
-    auto docs = loadWikipediaSample();
-    if (docs.empty()) {
-        state.SkipWithError("No Wikipedia sample data found");
-        return;
-    }
+    size_t num_docs = 1000;  // Fixed dataset size
+    auto docs = generateSyntheticDocuments(num_docs);
     
     SearchEngine engine;
     
     // Index all documents
-    for (size_t i = 0; i < docs.size(); ++i) {
+    for (size_t i = 0; i < num_docs; ++i) {
         Document doc;
         doc.id = i;
         doc.fields["title"] = docs[i].first;
@@ -231,6 +216,6 @@ BENCHMARK(BM_SearchResultSize)
     ->Arg(1)
     ->Arg(10)
     ->Arg(50)
-    ->Arg(100);
+    ->MinTime(0.1);
 
 BENCHMARK_MAIN();

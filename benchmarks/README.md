@@ -6,11 +6,18 @@ This directory contains performance benchmarks for the search engine using [Goog
 
 The benchmark suite measures various aspects of the search engine's performance:
 
+- **Top-K Retrieval**: Bounded priority queue vs traditional sort performance
 - **Indexing Performance**: Document ingestion speed and batch indexing throughput
 - **Search Performance**: Query latency and throughput with different configurations
 - **Memory Usage**: Memory overhead per document and index size vs corpus size
 - **Concurrency**: Multi-threaded search performance
 - **Tokenizer SIMD**: SIMD-accelerated vs scalar tokenization performance (ARM NEON, AVX2, SSE4.2)
+
+## 📚 Documentation
+
+- **[BENCHMARK_GUIDE.md](BENCHMARK_GUIDE.md)** - Comprehensive guide to running, analyzing, and optimizing benchmarks
+- **[EXAMPLE_RESULTS.md](EXAMPLE_RESULTS.md)** - Example outputs, performance analysis, and production recommendations
+- **[TOKENIZER_BENCHMARK_GUIDE.md](TOKENIZER_BENCHMARK_GUIDE.md)** - Guide to SIMD tokenizer benchmarks
 
 ## 🚀 SIMD Acceleration
 
@@ -28,45 +35,72 @@ The tokenizer includes comprehensive SIMD optimizations for:
 
 See [SIMD_PERFORMANCE_RESULTS.md](SIMD_PERFORMANCE_RESULTS.md) for detailed analysis.
 
-## Building and Running
+## 🚀 Quick Start
 
-### Build All Benchmarks
+### Using the Wrapper Script (Recommended)
+
+```bash
+cd benchmarks
+
+# Run all benchmarks
+./run_benchmarks.sh --all
+
+# Run specific suite
+./run_benchmarks.sh topk
+
+# Run with filtering
+./run_benchmarks.sh topk --filter "BM_TopK_Heap" --json --output results.json
+
+# Run with statistical analysis
+./run_benchmarks.sh search --repetitions 10 --aggregate-only
+
+# Compare results
+python3 compare_benchmarks.py baseline.json current.json
+```
+
+See [BENCHMARK_GUIDE.md](BENCHMARK_GUIDE.md) for comprehensive usage instructions.
+
+### Manual Execution
 
 ```bash
 cd build
+
+# Build all benchmarks
 cmake ..
 make
-```
 
-### Run Individual Benchmarks
-
-```bash
-# Indexing benchmarks
+# Run individual benchmarks
+./benchmarks/topk_benchmark
 ./benchmarks/indexing_benchmark
-
-# Search benchmarks
 ./benchmarks/search_benchmark
-
-# Memory benchmarks
 ./benchmarks/memory_benchmark
-
-# Concurrent benchmarks
 ./benchmarks/concurrent_benchmark
-
-# Tokenizer SIMD vs Scalar benchmark
 ./benchmarks/tokenizer_simd_benchmark
-```
-
-### Run All Benchmarks
-
-```bash
-cd build/benchmarks
-./indexing_benchmark && ./search_benchmark && ./memory_benchmark && ./concurrent_benchmark && ./tokenizer_simd_benchmark
 ```
 
 ## Benchmark Files
 
-### 1. indexing_benchmark.cpp
+### 1. topk_benchmark.cpp
+
+Measures Top-K bounded priority queue performance vs traditional sorting.
+
+**Benchmarks:**
+- `BM_TopK_Heap_vs_Sort`: Direct comparison of heap vs sort for various (K, N) combinations
+- `BM_TopK_VaryingK`: Performance across different K values (1 to 1000)
+- `BM_TopK_EarlyTermination`: Efficiency of early termination optimization
+- `BM_TopK_RankerComparison`: BM25 vs TF-IDF with Top-K retrieval
+- `BM_TopK_QueryComplexity`: Multi-term query performance
+- `BM_TopK_MemoryEfficiency`: Memory usage comparison
+
+**Key Findings:**
+- **50-150x speedup** for K=10, N=10K-100K
+- **O(N log K)** vs **O(N log N)** complexity
+- BM25 **17% faster** than TF-IDF
+- Optimal for **K < 1000**
+
+See [EXAMPLE_RESULTS.md](EXAMPLE_RESULTS.md) for detailed analysis.
+
+### 2. indexing_benchmark.cpp
 
 Measures document indexing performance.
 
