@@ -27,5 +27,9 @@ target_link_libraries(concurrent_benchmark search_engine benchmark::benchmark)
 
 add_executable(memory_benchmark memory_benchmark.cpp)
 target_link_libraries(memory_benchmark search_engine benchmark::benchmark)
+
 add_executable(tokenizer_simd_benchmark tokenizer_simd_benchmark.cpp)
 target_link_libraries(tokenizer_simd_benchmark search_engine benchmark::benchmark)
+
+add_executable(topk_benchmark topk_benchmark.cpp)
+target_link_libraries(topk_benchmark search_engine benchmark::benchmark)
