@@ -7,12 +7,29 @@
 #include <memory>
 #include <chrono>
 #include <vector>
+#include <filesystem>
 
 using namespace search_engine;
 using namespace drogon;
 
 // Global search engine instance
 static std::shared_ptr<SearchEngine> g_engine;
+
+static std::string resolveUiRoot() {
+    namespace fs = std::filesystem;
+    const std::vector<fs::path> candidates = {
+        fs::current_path() / "ui",
+        fs::current_path() / "../ui",
+        fs::current_path() / "../../server/ui",
+        fs::current_path() / "../server/ui"
+    };
+    for (const auto& path : candidates) {
+        if (fs::exists(path / "index.html")) {
+            return fs::absolute(path).string();
+        }
+    }
+    return "";
+}
 
 // Search endpoint handler
 void handleSearch(const HttpRequestPtr& req,
@@ -323,11 +340,17 @@ int main(int argc, char* argv[]) {
     std::cout << "  POST   /skip/rebuild\n";
     std::cout << "  POST   /skip/rebuild/<term>\n";
     std::cout << "  GET    /skip/stats?term=<term>\n";
+    std::cout << "  GET    / (web UI)\n";
     std::cout << "Press Ctrl+C to stop\n\n";
     
     // Configure Drogon
     app().addListener("0.0.0.0", port);
     app().setThreadNum(4);  // Use 4 threads
+
+    const std::string ui_root = resolveUiRoot();
+    if (!ui_root.empty()) {
+        app().setDocumentRoot(ui_root);
+    }
     
     // Log incoming requests
     app().registerPreHandlingAdvice(
@@ -363,6 +386,16 @@ int main(int argc, char* argv[]) {
     // Register routes
     app().registerHandler("/search?q={query}", &handleSearch, {Get});
     app().registerHandler("/stats", &handleStats, {Get});
+    app().registerHandler("/", [ui_root](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback) {
+        if (ui_root.empty()) {
+            auto resp = HttpResponse::newHttpResponse();
+            resp->setStatusCode(k404NotFound);
+            callback(resp);
+            return;
+        }
+        auto resp = HttpResponse::newFileResponse(ui_root + "/index.html");
+        callback(resp);
+    }, {Get});
     app().registerHandler("/index", &handleIndex, {Post});
     app().registerHandler("/delete/{id}", &handleDelete, {Delete});
     app().registerHandler("/save", &handleSave, {Post});

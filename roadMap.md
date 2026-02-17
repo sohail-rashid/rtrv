@@ -72,7 +72,7 @@ The engine already tracks token positions and character offsets via the `Token` 
 | New: `SnippetExtractor` class | Create |
 | `SearchEngine::search()` | Call snippet extractor post-scoring |
 | `rest_server_drogon.cpp` | Parse highlight params, include snippets in response |
-| `web_ui/` | Render highlighted snippets in results |
+| `ui/` | Render highlighted snippets in results |
 
 ### Acceptance Criteria
 
@@ -261,7 +261,7 @@ Any real-world search UI needs pagination. Returning all results at once is impr
 | New: `PaginationInfo` struct | Create |
 | `SearchEngine::search()` | Implement offset slicing and cursor logic |
 | `rest_server_drogon.cpp` | Parse pagination params, return pagination metadata |
-| `web_ui/` | Add pagination controls |
+| `ui/` | Add pagination controls |
 
 ### Acceptance Criteria
 
@@ -395,7 +395,7 @@ Auto-complete is one of the most visible and impactful UX features in search eng
 | `SearchEngine::indexDocument()` | Feed terms into trie |
 | `SearchEngine::deleteDocument()` | Remove terms from trie |
 | `rest_server_drogon.cpp` | Add `/suggest` endpoint |
-| `web_ui/` | Add suggestion dropdown, debounced API calls |
+| `ui/` | Add suggestion dropdown, debounced API calls |
 
 ### Acceptance Criteria
 
@@ -534,7 +534,7 @@ Faceted search is essential for e-commerce, knowledge bases, and any structured 
 | `SearchEngine::indexDocument()` | Populate facet index |
 | `SearchEngine::deleteDocument()` | Remove from facet index |
 | `rest_server_drogon.cpp` | Parse facet params, return facet results |
-| `web_ui/` | Add facet sidebar panel |
+| `ui/` | Add facet sidebar panel |
 
 ### Acceptance Criteria
 

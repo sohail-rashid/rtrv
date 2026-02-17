@@ -595,7 +595,7 @@ searchDB/
 │   ├── README.md
 │   ├── rest_server_drogon.cpp  # Drogon framework
 │   ├── rest_server_interactive.cpp  # CLI interface
-│   └── web_ui/                 # NEW: Modern Web UI
+│   └── ui/                 # NEW: Modern Web UI
 │       ├── index.html          # Rtrv branded interface
 │       ├── style.css           # Glassmorphism design
 │       ├── app.js              # Search logic + animations
@@ -1020,7 +1020,7 @@ make
 
 **Rtrv** - A modern, glassmorphism-styled web interface for the search engine.
 
-<img src="server/web_ui/screenshot.png" alt="Rtrv Web UI" width="800"/>
+<img src="server/ui/screenshot.png" alt="Rtrv Web UI" width="800"/>
 
 #### Features
 
@@ -1040,13 +1040,12 @@ make
 
 ```bash
 # Option 1: Use the automated launcher (recommended)
-cd server/web_ui
+cd server/ui
 ./launch_webui.sh
 
 # This will:
 # - Check for available REST servers (Drogon)
 # - Start the server on port 8080
-# - Launch Python HTTP server for static files on port 3000
 # - Open browser automatically
 
 # Option 2: Manual setup
@@ -1054,19 +1053,15 @@ cd server/web_ui
 cd build
 ./server/rest_server_drogon --port 8080
 
-# Terminal 2: Serve static files
-cd server/web_ui
-python3 -m http.server 3000
-
 # Open browser
-open http://localhost:3000
+open http://localhost:8080
 ```
 
 #### Web UI Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Browser (Port 3000)                  │
+│                    Browser (Port 8080)                  │
 │  ┌──────────────────────────────────────────────────┐  │
 │  │  Static Files (HTML/CSS/JS)                      │  │
 │  │  - index.html (Structure)                        │  │

@@ -50,50 +50,33 @@ Modern, responsive web interface for the C++ Search Engine with advanced feature
 ### Option 1: Using the Launch Script (Recommended)
 
 ```bash
-cd server/web_ui
+cd server/ui
 chmod +x launch_webui.sh
 ./launch_webui.sh
 ```
 
 This will:
 1. Start the REST API server (port 8080)
-2. Start the web UI server (port 3000)
+2. Serve the web UI from Drogon on port 8080
 3. Open your browser automatically
 
 ### Option 2: Manual Setup
 
-1. **Start the REST API Server:**
+1. **Start the REST API Server (serves UI too):**
 ```bash
 cd build/server
 ./rest_server_drogon
 ```
 
-2. **Serve the Web UI:**
-```bash
-cd server/web_ui
-python3 -m http.server 3000
+2. **Open in browser:**
 ```
-
-3. **Open in browser:**
-```
-http://localhost:3000
+http://localhost:8080
 ```
 
 ## Configuration
 
 ### API Endpoint
-Edit `app.js` to change the API endpoint:
-
-```javascript
-const API_BASE = 'http://localhost:8080';
-```
-
-### Demo Mode
-For testing without a running server:
-
-```javascript
-const DEMO_MODE = true;  // Set to true for demo mode
-```
+The UI uses the current origin (`window.location.origin`) so it automatically targets the Drogon server.
 
 ## Usage Guide
 
@@ -172,7 +155,6 @@ curl "http://localhost:8080/search?q=machine+learning&algorithm=bm25&max_results
 ### "Unable to connect to search server"
 1. Verify REST API server is running: `curl http://localhost:8080/stats`
 2. Check firewall settings
-3. Enable DEMO_MODE in `app.js` for testing
 
 ### Slow Performance
 1. Enable "Top-K Heap" for K < 1000
@@ -189,7 +171,7 @@ curl "http://localhost:8080/search?q=machine+learning&algorithm=bm25&max_results
 
 ### File Structure
 ```
-web_ui/
+ui/
 ├── index.html       # Main HTML structure
 ├── app.js           # JavaScript logic and API calls
 ├── style.css        # Styling and animations
