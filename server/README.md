@@ -153,28 +153,26 @@ Content-Type: application/json
 
 ## Web UI
 
-A browser-based interface for the search engine located in `web_ui/`.
+A browser-based interface for the search engine located in `ui/`.
 
 ### Running the Web UI
 
-The web UI consists of static files (`index.html`, `app.js`, `style.css`) that need to be served through a web server.
+The web UI is served directly by the Drogon server.
 
 **Prerequisites:**
-- A running REST API server (any of the implementations above)
-- A web server to serve static files (Python, Node.js, PHP, or VS Code Live Server)
+- A running Drogon REST API server
 
 **Quick Launch (Automated Script):**
 
 The easiest way to start everything is using the provided launch script:
 
 ```bash
-cd server/web_ui
+cd server/ui
 ./launch_webui.sh
 ```
 
 The script will:
-- ✅ Automatically find and start the best available REST server (Drogon → Raw)
-- ✅ Start a web server (Python, PHP, or Node.js)
+- ✅ Start the Drogon REST server
 - ✅ Check for port conflicts
 - ✅ Open your browser automatically
 - ✅ Display URLs and status
@@ -182,9 +180,9 @@ The script will:
 
 **Manual Setup:**
 
-If you prefer to start servers manually:
+If you prefer to start the server manually:
 
-1. **Start a REST API server (in terminal 1):**
+1. **Start the REST API server (serves UI):**
    ```bash
    cd build/server
    ./rest_server_drogon 8080
@@ -197,34 +195,9 @@ If you prefer to start servers manually:
    Server will listen on http://localhost:8080
    ```
 
-2. **Start the web UI server (in terminal 2):**
-   
-   **Option A: Using Python (recommended):**
-   ```bash
-   cd server/web_ui
-   python3 -m http.server 3000
+2. **Access in browser:**
    ```
-   
-   **Option B: Using Node.js:**
-   ```bash
-   cd server/web_ui
-   npx http-server -p 3000
-   ```
-   
-   **Option C: Using PHP:**
-   ```bash
-   cd server/web_ui
-   php -S localhost:3000
-   ```
-   
-   **Option D: Using VS Code Live Server:**
-   - Install "Live Server" extension in VS Code
-   - Open `server/web_ui/index.html`
-   - Right-click → "Open with Live Server"
-
-3. **Access in browser:**
-   ```
-   http://localhost:3000
+  http://localhost:8080
    ```
    
    Or click the URL shown in the terminal output.
@@ -232,14 +205,10 @@ If you prefer to start servers manually:
 **Quick Start (One-Liner):**
 ```bash
 # Automated: Use the launch script (recommended)
-cd server/web_ui && ./launch_webui.sh
+cd server/ui && ./launch_webui.sh
 
-# OR Manual: Start servers separately
-# Terminal 1: Start REST server (Drogon - high performance)
+# OR Manual: Start server directly
 cd build/server && ./rest_server_drogon 8080
-
-# Terminal 2: Start web UI
-cd server/web_ui && python3 -m http.server 3000
 ```
 
 ### Features
@@ -249,22 +218,27 @@ cd server/web_ui && python3 -m http.server 3000
 - 📊 Configurable max results slider
 - 📈 Live statistics display
 - 🎨 Modern, responsive design
-- 🚀 Demo mode for testing without a backend
 
 ### Configuration
 
-Edit `web_ui/app.js` to change settings:
+Edit `ui/app.js` to change settings:
 
 ```javascript
-const API_BASE = 'http://localhost:8080';  // REST API endpoint
-const DEMO_MODE = false;                    // Set true for offline testing
+const CONFIG = {
+  apiBase: window.location.origin,
+  requestTimeoutMs: 4000,
+  enableFuzzy: true,
+  enableHighlight: true,
+  defaultMaxResults: 10
+};
 ```
 
 **Available Settings:**
-- `API_BASE`: URL of your REST API server (change if using different port)
-- `DEMO_MODE`: Enable to test UI without a backend (uses mock data)
-- `DEFAULT_MAX_RESULTS`: Default number of search results (default: 10)
-- `DEFAULT_ALGORITHM`: Default algorithm ('bm25' or 'tfidf')
+- `apiBase`: URL of your REST API server (defaults to current origin)
+- `requestTimeoutMs`: Request timeout in milliseconds
+- `enableFuzzy`: Enable fuzzy matching on the server
+- `enableHighlight`: Enable snippets/highlighting on the server
+- `defaultMaxResults`: Default number of search results
 
 **How app.js Works:**
 1. Runs in the browser (client-side JavaScript)
@@ -274,7 +248,7 @@ const DEMO_MODE = false;                    // Set true for offline testing
 
 **Architecture:**
 ```
-Browser (port 3000)          REST API Server (port 8080)
+Browser (port 8080)          REST API Server (port 8080)
 ┌─────────────────┐         ┌──────────────────────┐
 │  index.html     │         │   rest_server_drogon │
 │  style.css      │         │   (C++ backend)      │
@@ -283,8 +257,8 @@ Browser (port 3000)          REST API Server (port 8080)
 └─────────────────┘         └──────────────────────┘
      │                               │
      │                               │
-     └── HTTP Server ─────────────── SearchEngine
-         (Python/Node/PHP)            + Documents
+     └── Drogon ──────────────────── SearchEngine
+       (static + API)              + Documents
 ```
 
 ---
@@ -412,9 +386,9 @@ curl -X POST http://localhost:8080/index \
 
 ### 3. Use the Web UI
 ```bash
-cd server/web_ui
-python3 -m http.server 3000
-# Open http://localhost:3000 in browser
+cd server/ui
+./launch_webui.sh
+# Open http://localhost:8080 in browser
 ```
 
 ---

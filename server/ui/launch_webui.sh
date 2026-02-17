@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Search Engine Web UI Launcher
-# This script starts the REST API server and web UI server
+# This script starts the Drogon REST server (serves the UI and API)
 
 set -e
 
@@ -14,17 +14,13 @@ NC='\033[0m' # No Color
 
 # Configuration
 REST_PORT=8080
-WEB_PORT=3000
 # Server priority: rest_server_drogon (fastest)
 # The script will use the first available server from the build directory
-DEFAULT_REST_SERVER="rest_server_drogon"  # Default: Drogon (high-performance async)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BUILD_DIR="$SCRIPT_DIR/../../build/server"
-WEB_DIR="$SCRIPT_DIR"
 
 # PID files for cleanup
 REST_PID=""
-WEB_PID=""
 
 # Cleanup function
 cleanup() {
@@ -33,11 +29,6 @@ cleanup() {
     if [ ! -z "$REST_PID" ] && kill -0 "$REST_PID" 2>/dev/null; then
         echo -e "${BLUE}   Stopping REST server (PID: $REST_PID)${NC}"
         kill "$REST_PID" 2>/dev/null || true
-    fi
-    
-    if [ ! -z "$WEB_PID" ] && kill -0 "$WEB_PID" 2>/dev/null; then
-        echo -e "${BLUE}   Stopping web server (PID: $WEB_PID)${NC}"
-        kill "$WEB_PID" 2>/dev/null || true
     fi
     
     echo -e "${GREEN}✨ Cleanup complete. Goodbye!${NC}"
@@ -80,12 +71,6 @@ if lsof -Pi :$REST_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
     exit 1
 fi
 
-if lsof -Pi :$WEB_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
-    echo -e "${RED}❌ Error: Port $WEB_PORT is already in use${NC}"
-    echo -e "${YELLOW}   Kill the process using: kill \$(lsof -ti:$WEB_PORT)${NC}"
-    exit 1
-fi
-
 # Print startup banner
 echo -e "${GREEN}"
 echo "╔══════════════════════════════════════════════════════════╗"
@@ -117,46 +102,13 @@ else
     echo -e "${YELLOW}⚠️  REST server started but not responding yet (may take a moment)${NC}"
 fi
 
-# Start web UI server
-echo -e "${BLUE}🌐 Starting web UI server...${NC}"
-cd "$WEB_DIR"
-
-# Check which web server is available
-if command -v python3 &> /dev/null; then
-    python3 -m http.server $WEB_PORT > /tmp/web_server.log 2>&1 &
-    WEB_PID=$!
-    WEB_SERVER_NAME="Python"
-elif command -v python &> /dev/null; then
-    python -m http.server $WEB_PORT > /tmp/web_server.log 2>&1 &
-    WEB_PID=$!
-    WEB_SERVER_NAME="Python"
-elif command -v php &> /dev/null; then
-    php -S localhost:$WEB_PORT > /tmp/web_server.log 2>&1 &
-    WEB_PID=$!
-    WEB_SERVER_NAME="PHP"
-else
-    echo -e "${RED}❌ Error: No web server found (python3, python, or php required)${NC}"
-    exit 1
-fi
-
-# Wait for web server to start
-sleep 1
-
-# Check if web server is running
-if ! kill -0 "$WEB_PID" 2>/dev/null; then
-    echo -e "${RED}❌ Error: Web server failed to start${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ Web UI server running on http://localhost:$WEB_PORT${NC}"
-
 # Print access information
 echo -e "\n${GREEN}╔══════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║                  🎉 All Systems Ready!                    ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
 echo -e ""
 echo -e "${BLUE}📡 REST API:${NC}  http://localhost:$REST_PORT"
-echo -e "${BLUE}🌐 Web UI:${NC}    ${GREEN}http://localhost:$WEB_PORT${NC}"
+echo -e "${BLUE}🌐 Web UI:${NC}    ${GREEN}http://localhost:$REST_PORT${NC}"
 echo -e ""
 echo -e "${YELLOW}Endpoints:${NC}"
 echo -e "  • http://localhost:$REST_PORT/stats"
@@ -164,7 +116,6 @@ echo -e "  • http://localhost:$REST_PORT/search?q=query"
 echo -e ""
 echo -e "${YELLOW}Logs:${NC}"
 echo -e "  • REST server: tail -f /tmp/rest_server.log"
-echo -e "  • Web server:  tail -f /tmp/web_server.log"
 echo -e ""
 echo -e "${YELLOW}Press Ctrl+C to stop all servers${NC}"
 echo -e ""
@@ -173,11 +124,11 @@ echo -e ""
 if command -v open &> /dev/null; then
     echo -e "${BLUE}🔗 Opening browser...${NC}"
     sleep 1
-    open "http://localhost:$WEB_PORT" 2>/dev/null || true
+    open "http://localhost:$REST_PORT" 2>/dev/null || true
 elif command -v xdg-open &> /dev/null; then
     echo -e "${BLUE}🔗 Opening browser...${NC}"
     sleep 1
-    xdg-open "http://localhost:$WEB_PORT" 2>/dev/null || true
+    xdg-open "http://localhost:$REST_PORT" 2>/dev/null || true
 fi
 
 # Wait for user to press Ctrl+C

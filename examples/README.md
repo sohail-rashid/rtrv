@@ -91,5 +91,5 @@ This will index 50 computer science articles covering topics like AI, machine le
 
 After running these examples, try:
 1. **REST API Servers** - Start a server in `server/` directory
-2. **Web UI** - Use the browser interface in `examples/web_ui/`
+2. **Web UI** - Use the browser interface in `server/ui/`
 3. **Custom Applications** - Build your own search applications using these as templates
