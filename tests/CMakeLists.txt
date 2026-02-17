@@ -19,6 +19,7 @@ add_executable(search_engine_tests
     document_loader_test.cpp
     top_k_heap_test.cpp
     snippet_extractor_test.cpp
+    fuzzy_search_test.cpp
 )
 
 target_link_libraries(search_engine_tests

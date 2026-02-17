@@ -19,18 +19,18 @@ TEST_F(SnippetExtractorTest, HighlightSingleTerm) {
     std::string text = "The quick brown fox jumps over the lazy dog";
     std::vector<std::string> terms = {"fox"};
     std::string result = extractor.highlightTerms(text, terms);
-    EXPECT_NE(result.find("<em>fox</em>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>fox</mark>"), std::string::npos);
     // Non-matching words should not be highlighted
-    EXPECT_EQ(result.find("<em>quick</em>"), std::string::npos);
+    EXPECT_EQ(result.find("<mark>quick</mark>"), std::string::npos);
 }
 
 TEST_F(SnippetExtractorTest, HighlightMultipleTerms) {
     std::string text = "machine learning is a branch of artificial intelligence";
     std::vector<std::string> terms = {"machine", "intelligence"};
     std::string result = extractor.highlightTerms(text, terms);
-    EXPECT_NE(result.find("<em>machine</em>"), std::string::npos);
-    EXPECT_NE(result.find("<em>intelligence</em>"), std::string::npos);
-    EXPECT_EQ(result.find("<em>branch</em>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>machine</mark>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>intelligence</mark>"), std::string::npos);
+    EXPECT_EQ(result.find("<mark>branch</mark>"), std::string::npos);
 }
 
 TEST_F(SnippetExtractorTest, HighlightIsCaseInsensitive) {
@@ -38,8 +38,8 @@ TEST_F(SnippetExtractorTest, HighlightIsCaseInsensitive) {
     std::vector<std::string> terms = {"machine"};
     std::string result = extractor.highlightTerms(text, terms);
     // Both "Machine" and "MACHINE" should be highlighted, preserving original case
-    EXPECT_NE(result.find("<em>Machine</em>"), std::string::npos);
-    EXPECT_NE(result.find("<em>MACHINE</em>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>Machine</mark>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>MACHINE</mark>"), std::string::npos);
 }
 
 TEST_F(SnippetExtractorTest, HighlightPreservesOriginalCase) {
@@ -47,8 +47,8 @@ TEST_F(SnippetExtractorTest, HighlightPreservesOriginalCase) {
     std::vector<std::string> terms = {"python"};
     std::string result = extractor.highlightTerms(text, terms);
     // Should wrap "Python" (original case) not "python"
-    EXPECT_NE(result.find("<em>Python</em>"), std::string::npos);
-    EXPECT_EQ(result.find("<em>python</em>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>Python</mark>"), std::string::npos);
+    EXPECT_EQ(result.find("<mark>python</mark>"), std::string::npos);
 }
 
 TEST_F(SnippetExtractorTest, HighlightCustomTags) {
@@ -56,7 +56,7 @@ TEST_F(SnippetExtractorTest, HighlightCustomTags) {
     std::vector<std::string> terms = {"world"};
     std::string result = extractor.highlightTerms(text, terms, "**", "**");
     EXPECT_NE(result.find("**world**"), std::string::npos);
-    EXPECT_EQ(result.find("<em>"), std::string::npos);
+    EXPECT_EQ(result.find("<mark>"), std::string::npos);
 }
 
 TEST_F(SnippetExtractorTest, HighlightEmptyText) {
@@ -82,9 +82,9 @@ TEST_F(SnippetExtractorTest, HighlightTermAtStartAndEnd) {
     std::vector<std::string> terms = {"fox"};
     std::string result = extractor.highlightTerms(text, terms);
     // Both occurrences should be highlighted
-    size_t first = result.find("<em>fox</em>");
+    size_t first = result.find("<mark>fox</mark>");
     EXPECT_NE(first, std::string::npos);
-    size_t second = result.find("<em>fox</em>", first + 1);
+    size_t second = result.find("<mark>fox</mark>", first + 1);
     EXPECT_NE(second, std::string::npos);
 }
 
@@ -93,8 +93,8 @@ TEST_F(SnippetExtractorTest, HighlightDoesNotMatchSubstrings) {
     std::vector<std::string> terms = {"fox"};
     std::string result = extractor.highlightTerms(text, terms);
     // "foxes" should NOT be highlighted, only "fox"
-    EXPECT_EQ(result.find("<em>foxes</em>"), std::string::npos);
-    EXPECT_NE(result.find("<em>fox</em>"), std::string::npos);
+    EXPECT_EQ(result.find("<mark>foxes</mark>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>fox</mark>"), std::string::npos);
 }
 
 // ---- generateSnippets tests ----
@@ -104,7 +104,7 @@ TEST_F(SnippetExtractorTest, SnippetShortDocument) {
     std::vector<std::string> terms = {"fox"};
     auto snippets = extractor.generateSnippets(text, terms);
     ASSERT_EQ(snippets.size(), 1);
-    EXPECT_NE(snippets[0].find("<em>fox</em>"), std::string::npos);
+    EXPECT_NE(snippets[0].find("<mark>fox</mark>"), std::string::npos);
     // Short doc should NOT have ellipsis
     EXPECT_EQ(snippets[0].find("..."), std::string::npos);
 }
@@ -126,7 +126,7 @@ TEST_F(SnippetExtractorTest, SnippetLongDocumentHasEllipsis) {
     // Should have at least one snippet containing the highlighted term
     bool found_highlight = false;
     for (const auto& s : snippets) {
-        if (s.find("<em>machine</em>") != std::string::npos) {
+        if (s.find("<mark>machine</mark>") != std::string::npos) {
             found_highlight = true;
         }
     }
@@ -187,7 +187,7 @@ TEST_F(SnippetExtractorTest, SnippetCustomHighlightTags) {
     auto snippets = extractor.generateSnippets(text, terms, opts);
     ASSERT_EQ(snippets.size(), 1);
     EXPECT_NE(snippets[0].find("**machine**"), std::string::npos);
-    EXPECT_EQ(snippets[0].find("<em>"), std::string::npos);
+    EXPECT_EQ(snippets[0].find("<mark>"), std::string::npos);
 }
 
 TEST_F(SnippetExtractorTest, SnippetMultipleTermsHighlighted) {
@@ -196,9 +196,9 @@ TEST_F(SnippetExtractorTest, SnippetMultipleTermsHighlighted) {
 
     auto snippets = extractor.generateSnippets(text, terms);
     ASSERT_EQ(snippets.size(), 1);  // Short doc => single snippet
-    EXPECT_NE(snippets[0].find("<em>machine</em>"), std::string::npos);
-    EXPECT_NE(snippets[0].find("<em>learning</em>"), std::string::npos);
-    EXPECT_NE(snippets[0].find("<em>intelligence</em>"), std::string::npos);
+    EXPECT_NE(snippets[0].find("<mark>machine</mark>"), std::string::npos);
+    EXPECT_NE(snippets[0].find("<mark>learning</mark>"), std::string::npos);
+    EXPECT_NE(snippets[0].find("<mark>intelligence</mark>"), std::string::npos);
 }
 
 // =============================================================================

@@ -1,0 +1,4 @@
+/Users/sohail.rashid/Library/CloudStorage/OneDrive-CDW/personal/searchDB/server/web_ui/CMakeFiles/interactive_server.dir
+/Users/sohail.rashid/Library/CloudStorage/OneDrive-CDW/personal/searchDB/server/web_ui/CMakeFiles/rest_server_drogon.dir
+/Users/sohail.rashid/Library/CloudStorage/OneDrive-CDW/personal/searchDB/server/web_ui/CMakeFiles/edit_cache.dir
+/Users/sohail.rashid/Library/CloudStorage/OneDrive-CDW/personal/searchDB/server/web_ui/CMakeFiles/rebuild_cache.dir

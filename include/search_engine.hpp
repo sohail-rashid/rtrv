@@ -6,9 +6,11 @@
 #include "ranker.hpp"
 #include "query_parser.hpp"
 #include "snippet_extractor.hpp"
+#include "fuzzy_search.hpp"
 #include <string>
 #include <vector>
 #include <memory>
+#include <shared_mutex>
 
 namespace search_engine {
 
@@ -25,6 +27,10 @@ struct SearchOptions {
     bool generate_snippets = false;      // Enable snippet generation
     SnippetOptions snippet_options;       // Snippet configuration
     
+    // Fuzzy search options
+    bool fuzzy_enabled = false;           // Enable fuzzy matching for typo tolerance
+    uint32_t max_edit_distance = 0;       // 0 = auto (based on term length)
+    
     // Deprecated: Use ranker_name instead
     enum RankingAlgorithm { TF_IDF, BM25 };
     RankingAlgorithm algorithm = BM25;  // For backward compatibility
@@ -38,6 +44,7 @@ struct SearchResult {
     double score;
     std::string explanation;              // Optional score breakdown
     std::vector<std::string> snippets;    // Highlighted snippets (populated when generate_snippets=true)
+    std::unordered_map<std::string, std::string> expanded_terms;  // Fuzzy: original -> corrected term
     
     // Comparison operators for sorting and heap operations
     bool operator>(const SearchResult& other) const {
@@ -108,6 +115,10 @@ public:
     // Get snippet extractor for direct use
     const SnippetExtractor& getSnippetExtractor() const { return snippet_extractor_; }
     
+    // Get fuzzy search for direct use
+    FuzzySearch& getFuzzySearch() { return fuzzy_search_; }
+    const FuzzySearch& getFuzzySearch() const { return fuzzy_search_; }
+    
     // Tokenizer configuration
     void enableSIMD(bool enabled) { if (tokenizer_) tokenizer_->enableSIMD(enabled); }
     void setStemmer(StemmerType type) { if (tokenizer_) tokenizer_->setStemmer(type); }
@@ -119,13 +130,18 @@ public:
 private:
     friend class Persistence;
     
+    // Internal indexing without locking (caller must hold mutex_)
+    uint64_t indexDocumentInternal(const Document& doc);
+    
     std::unique_ptr<Tokenizer> tokenizer_;
     std::unique_ptr<InvertedIndex> index_;
     std::unique_ptr<QueryParser> query_parser_;
     std::unique_ptr<RankerRegistry> ranker_registry_;
     SnippetExtractor snippet_extractor_;
+    FuzzySearch fuzzy_search_;
     std::unordered_map<uint64_t, Document> documents_;
     uint64_t next_doc_id_;
+    mutable std::shared_mutex mutex_;  // Thread safety for documents_ and next_doc_id_
 };
 
 } 

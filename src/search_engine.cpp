@@ -20,6 +20,11 @@ SearchEngine::SearchEngine()
 SearchEngine::~SearchEngine() = default;
 
 uint64_t SearchEngine::indexDocument(const Document& doc) {
+    std::unique_lock lock(mutex_);
+    return indexDocumentInternal(doc);
+}
+
+uint64_t SearchEngine::indexDocumentInternal(const Document& doc) {
     // Use provided doc ID or generate new one
     uint64_t doc_id = (doc.id > 0) ? doc.id : next_doc_id_++;
     
@@ -35,6 +40,10 @@ uint64_t SearchEngine::indexDocument(const Document& doc) {
     uint32_t position = 0;
     for (const auto& term : tokens) {
         index_->addTerm(term, doc_id, position++);
+        // Incrementally update fuzzy n-gram index
+        if (fuzzy_search_.isIndexBuilt()) {
+            fuzzy_search_.addTerm(term);
+        }
     }
     
     // Store document
@@ -51,6 +60,8 @@ void SearchEngine::indexDocuments(const std::vector<Document>& docs) {
 }
 
 bool SearchEngine::updateDocument(uint64_t doc_id, const Document& doc) {
+    std::unique_lock lock(mutex_);
+    
     // Check if document exists
     if (documents_.find(doc_id) == documents_.end()) {
         return false;
@@ -63,13 +74,15 @@ bool SearchEngine::updateDocument(uint64_t doc_id, const Document& doc) {
     Document updated_doc = doc;
     updated_doc.id = doc_id;
     
-    // Re-index with same ID
-    indexDocument(updated_doc);
+    // Re-index with same ID (using internal method — lock already held)
+    indexDocumentInternal(updated_doc);
     
     return true;
 }
 
 bool SearchEngine::deleteDocument(uint64_t doc_id) {
+    std::unique_lock lock(mutex_);
+    
     // Check if document exists
     auto it = documents_.find(doc_id);
     if (it == documents_.end()) {
@@ -87,12 +100,63 @@ bool SearchEngine::deleteDocument(uint64_t doc_id) {
 
 std::vector<SearchResult> SearchEngine::search(const std::string& query,
                                                const SearchOptions& options) {
+    std::shared_lock lock(mutex_);
+    
     std::vector<SearchResult> results;
     
     // Extract query terms
     auto query_terms = query_parser_->extractTerms(query);
     if (query_terms.empty()) {
         return results;
+    }
+    
+    // Fuzzy search: expand query terms that have zero exact matches
+    std::unordered_map<std::string, std::string> fuzzy_expansions;
+    if (options.fuzzy_enabled) {
+        // Build n-gram index if not already built
+        const auto vocabulary = index_->getVocabulary();
+        if (!fuzzy_search_.isIndexBuilt()) {
+            fuzzy_search_.buildNgramIndex(vocabulary);
+        }
+        
+        std::vector<std::string> expanded_terms;
+        for (const auto& term : query_terms) {
+            // Check if term has exact matches in the index
+            if (index_->getDocumentFrequency(term) > 0) {
+                expanded_terms.push_back(term);
+                continue;
+            }
+            
+            // Prefix match: "machin" -> "machine"
+            std::string prefix_match;
+            for (const auto& vocab_term : vocabulary) {
+                if (vocab_term.rfind(term, 0) == 0) {
+                    if (prefix_match.empty() || vocab_term.size() < prefix_match.size()) {
+                        prefix_match = vocab_term;
+                    }
+                }
+            }
+            if (!prefix_match.empty()) {
+                expanded_terms.push_back(prefix_match);
+                fuzzy_expansions[term] = prefix_match;
+                continue;
+            }
+            
+            // No exact match — try fuzzy matching
+            auto matches = fuzzy_search_.findMatches(
+                term, options.max_edit_distance, 5);
+            
+            if (!matches.empty()) {
+                // Use the best (closest) match
+                const auto& best = matches[0];
+                expanded_terms.push_back(best.matched_term);
+                fuzzy_expansions[term] = best.matched_term;
+            } else {
+                // No fuzzy match found — keep original term
+                expanded_terms.push_back(term);
+            }
+        }
+        query_terms = expanded_terms;
     }
     
     // Create Query object
@@ -238,10 +302,24 @@ std::vector<SearchResult> SearchEngine::search(const std::string& query,
         }
     }
     
+    // Post-process: apply fuzzy scoring penalty and attach expansion info
+    if (options.fuzzy_enabled && !fuzzy_expansions.empty()) {
+        // Apply a scoring penalty proportional to the number of fuzzy-expanded terms
+        double penalty = 1.0 - (0.1 * fuzzy_expansions.size());
+        if (penalty < 0.5) penalty = 0.5;
+        
+        for (auto& result : results) {
+            result.score *= penalty;
+            result.expanded_terms = fuzzy_expansions;
+        }
+    }
+    
     return results;
 }
 
 IndexStatistics SearchEngine::getStats() const {
+    std::shared_lock lock(mutex_);
+    
     IndexStatistics stats;
     stats.total_documents = documents_.size();
     stats.total_terms = index_->getTermCount();
@@ -261,10 +339,12 @@ IndexStatistics SearchEngine::getStats() const {
 }
 
 bool SearchEngine::saveSnapshot(const std::string& filepath) {
+    std::shared_lock lock(mutex_);
     return Persistence::save(*this, filepath);
 }
 
 bool SearchEngine::loadSnapshot(const std::string& filepath) {
+    std::unique_lock lock(mutex_);
     return Persistence::load(*this, filepath);
 }
 

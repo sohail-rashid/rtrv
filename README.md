@@ -45,7 +45,7 @@ This project implements a scalable, in-memory search engine designed to demonstr
   - Efficient document frequency tracking
 - ✅ **Persistence**: Save and load index snapshots to/from disk with JSON format
 - ✅ **RESTful API**: 
-  - Multiple server implementations (Basic, Crow, Drogon, Interactive)
+  - Multiple server implementations (Drogon, Interactive)
   - Top-K heap search endpoint support
   - Skip pointer configuration
   - Modern web UI with glassmorphism design
@@ -482,10 +482,6 @@ engine.loadSnapshot("index.db");
   ```
 
 #### Optional API Server Dependencies
-- **Crow** (lightweight): Header-only HTTP framework
-  ```bash
-  brew install crow  # macOS
-  ```
 - **Drogon** (high-performance): Full-featured async HTTP framework
   ```bash
   brew install drogon  # macOS
@@ -534,9 +530,6 @@ make
 
 **With Specific Servers**:
 ```bash
-# Build with Crow server
-cmake -DBUILD_CROW_SERVER=ON ..
-
 # Build with Drogon server
 cmake -DBUILD_DROGON_SERVER=ON ..
 ```
@@ -559,7 +552,6 @@ searchDB/
 │   ├── search_engine.hpp
 │   ├── persistence.hpp
 │   ├── top_k_heap.hpp          # NEW: Top-K heap optimization
-│   └── crow.h                  # Crow framework (if used)
 │
 ├── src/                        # Implementation files
 │   ├── document.cpp
@@ -601,8 +593,6 @@ searchDB/
 ├── server/                     # API server implementations
 │   ├── CMakeLists.txt
 │   ├── README.md
-│   ├── rest_server.cpp         # Simple HTTP server
-│   ├── rest_server_crow.cpp    # Crow framework
 │   ├── rest_server_drogon.cpp  # Drogon framework
 │   ├── rest_server_interactive.cpp  # CLI interface
 │   └── web_ui/                 # NEW: Modern Web UI
@@ -894,26 +884,15 @@ For detailed benchmark documentation, see [`benchmarks/README.md`](benchmarks/RE
 
 ### REST API Servers
 
-Four server implementations are provided:
+Two server implementations are provided:
 
-#### 1. Simple REST Server (`rest_server.cpp`)
-- Lightweight, minimal dependencies
-- Good for learning and demos
-- Single-threaded
-
-#### 2. Crow Server (`rest_server_crow.cpp`)
-- Header-only, easy to integrate
-- Multi-threaded with thread pool
-- Good performance
-- **Recommended for development**
-
-#### 3. Drogon Server (`rest_server_drogon.cpp`)
+#### 1. Drogon Server (`rest_server_drogon.cpp`)
 - High-performance async framework
 - WebSocket support
 - Production-ready
 - **Recommended for production**
 
-#### 4. Interactive CLI Server (`rest_server_interactive.cpp`)
+#### 2. Interactive CLI Server (`rest_server_interactive.cpp`)
 - Command-line interface
 - Direct interaction with search engine
 - Useful for testing and debugging
@@ -1030,11 +1009,8 @@ curl -X POST http://localhost:8080/snapshot/load \
 cd build
 make
 
-# Run Crow server (recommended)
-./server/rest_server_crow --port 8080
-
 # Run Drogon server
-./server/rest_server_drogon
+./server/rest_server_drogon --port 8080
 
 # Run interactive CLI
 ./server/interactive_server
@@ -1068,7 +1044,7 @@ cd server/web_ui
 ./launch_webui.sh
 
 # This will:
-# - Check for available REST servers (Drogon > Crow > Basic)
+# - Check for available REST servers (Drogon)
 # - Start the server on port 8080
 # - Launch Python HTTP server for static files on port 3000
 # - Open browser automatically
@@ -1076,7 +1052,7 @@ cd server/web_ui
 # Option 2: Manual setup
 # Terminal 1: Start REST server
 cd build
-./server/rest_server_crow --port 8080
+./server/rest_server_drogon --port 8080
 
 # Terminal 2: Serve static files
 cd server/web_ui
@@ -1396,7 +1372,6 @@ make
 ### Libraries and Frameworks
 - [Google Test](https://github.com/google/googletest) - v1.12.1
 - [Google Benchmark](https://github.com/google/benchmark) - v1.8.3
-- [Crow](https://github.com/CrowCpp/Crow) - Lightweight C++ HTTP framework
 - [Drogon](https://github.com/drogonframework/drogon) - High-performance C++ HTTP framework
 - [nlohmann/json](https://github.com/nlohmann/json) - JSON for Modern C++
 
@@ -1431,7 +1406,7 @@ This project is available for educational and demonstration purposes. For commer
 
 Built with modern C++17 and industry-standard libraries:
 - Google Test & Benchmark frameworks
-- Crow and Drogon HTTP frameworks
+- Drogon HTTP framework
 - Intel SIMD intrinsics
 - Standard Template Library (STL)
 

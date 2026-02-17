@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 # Configuration
 REST_PORT=8080
 WEB_PORT=3000
-# Server priority: rest_server_drogon (fastest) > rest_server_crow > rest_server (basic)
+# Server priority: rest_server_drogon (fastest)
 # The script will use the first available server from the build directory
 DEFAULT_REST_SERVER="rest_server_drogon"  # Default: Drogon (high-performance async)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -59,7 +59,7 @@ fi
 # Find available REST server (prioritizes Drogon for best performance)
 REST_SERVER_PATH=""
 REST_SERVER=""
-for server in rest_server_drogon rest_server_crow rest_server; do
+for server in rest_server_drogon; do
     if [ -x "$BUILD_DIR/$server" ]; then
         REST_SERVER="$server"
         REST_SERVER_PATH="$BUILD_DIR/$server"
@@ -69,7 +69,7 @@ done
 
 if [ -z "$REST_SERVER_PATH" ]; then
     echo -e "${RED}❌ Error: No REST server found in $BUILD_DIR${NC}"
-    echo -e "${YELLOW}   Available servers: rest_server, rest_server_drogon, rest_server_crow${NC}"
+    echo -e "${YELLOW}   Available servers: rest_server_drogon${NC}"
     exit 1
 fi
 

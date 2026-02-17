@@ -2,6 +2,7 @@
 
 const API_BASE = 'http://localhost:8080';
 let DEMO_MODE = true; // Start with demo mode, will check server
+const FORCE_DEMO = false;
 
 // Sample data for demo mode
 const DEMO_DOCUMENTS = [
@@ -90,6 +91,11 @@ if (document.readyState === 'loading') {
 
 // Auto-detect if REST server is available (async, doesn't block rendering)
 (async function checkServerAvailability() {
+    if (FORCE_DEMO) {
+        DEMO_MODE = true;
+        console.log('🎯 Forced demo mode (default)');
+        return;
+    }
     console.log('🔍 Checking REST server availability...');
     try {
         const controller = new AbortController();
@@ -153,6 +159,7 @@ async function performSearch() {
     const algorithm = document.querySelector('input[name="algorithm"]:checked').value;
     const maxResults = parseInt(document.getElementById('maxResults').value);
     const useTopKHeap = document.getElementById('useTopKHeap').checked;
+    const fuzzySearch = true; // Always on in UI
     
     if (!query.trim()) {
         showToast('⚠️ Please enter a search query', 'warning');
@@ -174,10 +181,13 @@ async function performSearch() {
         
         if (DEMO_MODE) {
             // Demo mode: simulate search
-            data = performDemoSearch(query, algorithm, maxResults, useTopKHeap);
+            data = performDemoSearch(query, algorithm, maxResults, useTopKHeap, fuzzySearch);
         } else {
             // Real API call - pass query as-is, server handles parsing
-            const url = `${API_BASE}/search?q=${encodeURIComponent(query)}&algorithm=${algorithm}&max_results=${maxResults}&use_top_k_heap=${useTopKHeap}`;
+            let url = `${API_BASE}/search?q=${encodeURIComponent(query)}&algorithm=${algorithm}&max_results=${maxResults}&use_top_k_heap=${useTopKHeap}&highlight=true`;
+            if (fuzzySearch) {
+                url += '&fuzzy=true';
+            }
             const response = await fetch(url);
             data = await response.json();
         }
@@ -188,8 +198,18 @@ async function performSearch() {
         data.algorithm = algorithm;
         data.original_query = query;
         
-        displayResults(data.results, query);
+        // Collect expanded terms from response
+        const expanded = data.expanded_terms || 
+            (data.results && data.results.length > 0 && data.results[0].expanded_terms) || {};
+        
+        displayResults(data.results, query, expanded);
         displayStats(data);
+        
+        // Show fuzzy expansion info if terms were corrected
+        if (expanded && Object.keys(expanded).length > 0) {
+            const corrections = Object.entries(expanded).map(([from, to]) => `"${from}" → "${to}"`).join(', ');
+            showToast(`🔤 Fuzzy correction: ${corrections}`, 'info');
+        }
         
         // Show success message
         const resultText = data.total_results === 1 ? 'result' : 'results';
@@ -206,19 +226,92 @@ async function performSearch() {
     }
 }
 
-function performDemoSearch(query, algorithm, maxResults, useTopKHeap) {
+// Damerau-Levenshtein distance for demo mode fuzzy matching
+function damerauLevenshtein(a, b) {
+    const la = a.length, lb = b.length;
+    if (la === 0) return lb;
+    if (lb === 0) return la;
+    const d = Array.from({ length: la + 1 }, () => new Array(lb + 1).fill(0));
+    for (let i = 0; i <= la; i++) d[i][0] = i;
+    for (let j = 0; j <= lb; j++) d[0][j] = j;
+    for (let i = 1; i <= la; i++) {
+        for (let j = 1; j <= lb; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            d[i][j] = Math.min(
+                d[i - 1][j] + 1,       // deletion
+                d[i][j - 1] + 1,       // insertion
+                d[i - 1][j - 1] + cost  // substitution
+            );
+            if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+                d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + cost); // transposition
+            }
+        }
+    }
+    return d[la][lb];
+}
+
+function performDemoSearch(query, algorithm, maxResults, useTopKHeap, fuzzySearch) {
     // Simple scoring: count matching terms
     const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 0);
+    const expandedTerms = {};
+    
+    // In demo mode, always enable fuzzy — no performance concern with small dataset
+    const useFuzzy = true;
+    
+    // Build vocabulary from demo docs for fuzzy + prefix matching
+    const vocabulary = new Set();
+    DEMO_DOCUMENTS.forEach(doc => {
+        doc.content.toLowerCase().split(/\s+/).forEach(t => vocabulary.add(t));
+    });
+
+    // Resolve each query term via: exact match → prefix match → fuzzy match
+    const resolvedTerms = queryTerms.map(term => {
+        // 1. Exact match in vocabulary
+        if (vocabulary.has(term)) return term;
+        
+        // 2. Prefix match — "machin" → "machine"
+        let prefixMatch = null;
+        let shortestPrefix = Infinity;
+        for (const vocabTerm of vocabulary) {
+            if (vocabTerm.startsWith(term) && vocabTerm.length < shortestPrefix) {
+                prefixMatch = vocabTerm;
+                shortestPrefix = vocabTerm.length;
+            }
+        }
+        if (prefixMatch) {
+            expandedTerms[term] = prefixMatch;
+            return prefixMatch;
+        }
+        
+        // 3. Fuzzy match via edit distance
+        let bestMatch = null;
+        let bestDist = Infinity;
+        const maxDist = term.length <= 2 ? 0 : term.length <= 4 ? 1 : 2;
+        for (const vocabTerm of vocabulary) {
+            const d = damerauLevenshtein(term, vocabTerm);
+            if (d <= maxDist && d < bestDist) {
+                bestDist = d;
+                bestMatch = vocabTerm;
+            }
+        }
+        if (bestMatch && bestMatch !== term) {
+            expandedTerms[term] = bestMatch;
+            return bestMatch;
+        }
+        return term;
+    });
     
     const results = DEMO_DOCUMENTS.map(doc => {
         const docTerms = doc.content.toLowerCase().split(/\s+/);
         let score = 0;
         
-        // Count matching terms (exact word match)
-        for (const term of queryTerms) {
+        // Count matching terms: exact match, prefix match, and fuzzy match
+        for (const term of resolvedTerms) {
             for (const docTerm of docTerms) {
                 if (docTerm === term) {
-                    score += 1.0;
+                    score += 1.0;           // exact match
+                } else if (docTerm.startsWith(term) || term.startsWith(docTerm)) {
+                    score += 0.6;           // prefix match
                 }
             }
         }
@@ -232,9 +325,13 @@ function performDemoSearch(query, algorithm, maxResults, useTopKHeap) {
             score = score / (score + k1 * (1 - b + b * (docLen / avgLen)));
         }
         
+        // Generate snippets around matching terms
+        const snippets = generateDemoSnippets(doc.content, resolvedTerms, 120);
+
         return {
             document: doc,
-            score: score
+            score: score,
+            snippets: snippets
         };
     }).filter(r => r.score > 0)
       .sort((a, b) => b.score - a.score)
@@ -243,11 +340,60 @@ function performDemoSearch(query, algorithm, maxResults, useTopKHeap) {
     return {
         results: results,
         total_results: results.length,
-        total_documents: DEMO_DOCUMENTS.length
+        total_documents: DEMO_DOCUMENTS.length,
+        expanded_terms: Object.keys(expandedTerms).length > 0 ? expandedTerms : undefined
     };
 }
 
-function displayResults(results, query) {
+// Generate highlighted snippets around query term matches (demo mode)
+function generateDemoSnippets(text, queryTerms, maxLen) {
+    if (!text || !queryTerms.length) return [];
+    // If text fits in one snippet, return highlighted full text
+    if (text.length <= maxLen) {
+        return [highlightTermsInText(text, queryTerms)];
+    }
+    const lowerText = text.toLowerCase();
+    const words = lowerText.split(/\s+/);
+    // Find first matching word position
+    let bestPos = 0;
+    for (const term of queryTerms) {
+        const idx = lowerText.indexOf(term);
+        if (idx !== -1) { bestPos = idx; break; }
+    }
+    // Center window around match
+    let start = Math.max(0, bestPos - Math.floor(maxLen / 2));
+    let end = Math.min(text.length, start + maxLen);
+    // Snap to word boundaries
+    if (start > 0) {
+        const spaceIdx = text.indexOf(' ', start);
+        if (spaceIdx !== -1 && spaceIdx < start + 20) start = spaceIdx + 1;
+    }
+    if (end < text.length) {
+        const spaceIdx = text.lastIndexOf(' ', end);
+        if (spaceIdx > end - 20) end = spaceIdx;
+    }
+    let snippet = text.substring(start, end);
+    if (start > 0) snippet = '...' + snippet;
+    if (end < text.length) snippet = snippet + '...';
+    return [highlightTermsInText(snippet, queryTerms)];
+}
+
+// Highlight specific terms in text with <mark> tags
+function highlightTermsInText(text, terms) {
+    if (!terms.length) return escapeHtml(text);
+    // Escape HTML first, then highlight
+    let safe = escapeHtml(text);
+    for (const term of terms) {
+        if (term.length < 2) continue;
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b(${escaped})`, 'gi');
+        safe = safe.replace(regex, '<mark>$1</mark>');
+    }
+    return safe;
+}
+
+function displayResults(results, query, expandedTerms) {
+    expandedTerms = expandedTerms || {};
     const resultsDiv = document.getElementById('results');
     
     if (!results || results.length === 0) {
@@ -263,7 +409,13 @@ function displayResults(results, query) {
     
     let html = '<div class="result-list">';
     results.forEach((result, index) => {
-        const content = highlightQuery(result.document.content, query);
+        // Prefer server/demo snippets, fall back to highlighted content
+        let content;
+        if (result.snippets && result.snippets.length > 0) {
+            content = result.snippets.join(' ');
+        } else {
+            content = highlightQuery(result.document.content, query, expandedTerms);
+        }
         const scorePercent = Math.min(100, (result.score / 10) * 100);
         const scoreClass = result.score > 5 ? 'high-score' : result.score > 2 ? 'medium-score' : 'low-score';
         
@@ -316,16 +468,32 @@ function displayResults(results, query) {
     });
 }
 
-function highlightQuery(text, query) {
+function highlightQuery(text, query, expandedTerms) {
     if (!query) return escapeHtml(text);
+    expandedTerms = expandedTerms || {};
     
-    const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    // Collect both original terms and their fuzzy-expanded versions for highlighting
+    const originalTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    const highlightSet = new Set();
+    for (const term of originalTerms) {
+        highlightSet.add(term);
+        // If this term was fuzzy-expanded, also highlight the corrected version
+        if (expandedTerms[term]) {
+            highlightSet.add(expandedTerms[term].toLowerCase());
+        }
+    }
+    // Also add any expanded values in case keys don't match original terms exactly
+    for (const [orig, corrected] of Object.entries(expandedTerms)) {
+        highlightSet.add(corrected.toLowerCase());
+    }
+    
     let highlighted = escapeHtml(text);
     
-    terms.forEach(term => {
-        const regex = new RegExp(`(${term})`, 'gi');
+    for (const term of highlightSet) {
+        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escaped})`, 'gi');
         highlighted = highlighted.replace(regex, '<mark>$1</mark>');
-    });
+    }
     
     return highlighted;
 }

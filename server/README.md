@@ -4,27 +4,7 @@ This directory contains multiple REST API server implementations and an interact
 
 ## Server Implementations
 
-### 1. Raw Socket REST Server (`rest_server.cpp`)
-
-A lightweight REST API server using raw POSIX sockets with manual HTTP parsing.
-
-```bash
-./rest_server [port]
-```
-
-**Features:**
-- ✅ No external dependencies (pure C++ standard library)
-- ✅ Manual HTTP request/response handling
-- ✅ Multithreaded (one thread per connection)
-- ✅ Request/response logging with timestamps and emojis (📥✅⚠️❌)
-- ✅ CORS support for web UI
-- ⚡ Performance: ~5,000 requests/second
-
-**Use Case:** Learning tool, embedded systems, or environments without framework dependencies.
-
----
-
-### 2. Drogon REST Server (`rest_server_drogon.cpp`)
+### 1. Drogon REST Server (`rest_server_drogon.cpp`)
 
 High-performance async HTTP server using the Drogon framework.
 
@@ -49,33 +29,7 @@ brew install drogon  # macOS
 
 ---
 
-### 3. Crow REST Server (`rest_server_crow.cpp`)
-
-Modern C++ REST server using the Crow micro-framework.
-
-```bash
-./rest_server_crow [port]
-```
-
-**Features:**
-- ✅ Simple, Flask-like API
-- ✅ Header-only or installed via package manager
-- ✅ Built-in JSON support
-- ✅ Multithreaded server
-- ✅ Request/response logging with client IP tracking
-- ✅ CORS support
-- ⚡ Performance: ~20,000 requests/second
-
-**Requirements:**
-```bash
-brew install crow  # macOS
-```
-
-**Use Case:** Rapid prototyping, small-to-medium scale deployments.
-
----
-
-### 4. Interactive CLI Server (`rest_server_interactive.cpp`)
+### 2. Interactive CLI Server (`rest_server_interactive.cpp`)
 
 Command-line interface for manual search engine interaction.
 
@@ -219,7 +173,7 @@ cd server/web_ui
 ```
 
 The script will:
-- ✅ Automatically find and start the best available REST server (Drogon → Crow → Raw)
+- ✅ Automatically find and start the best available REST server (Drogon → Raw)
 - ✅ Start a web server (Python, PHP, or Node.js)
 - ✅ Check for port conflicts
 - ✅ Open your browser automatically
@@ -322,7 +276,7 @@ const DEMO_MODE = false;                    // Set true for offline testing
 ```
 Browser (port 3000)          REST API Server (port 8080)
 ┌─────────────────┐         ┌──────────────────────┐
-│  index.html     │         │   rest_server        │
+│  index.html     │         │   rest_server_drogon │
 │  style.css      │         │   (C++ backend)      │
 │  app.js         │────────▶│   /search, /stats    │
 │  (JavaScript)   │◀────────│   (JSON responses)   │
@@ -348,11 +302,9 @@ Browser (port 3000)          REST API Server (port 8080)
 ```bash
 # macOS
 brew install drogon      # For rest_server_drogon
-brew install crow        # For rest_server_crow
 
 # Ubuntu/Debian
 sudo apt install libdrogon-dev libjsoncpp-dev  # For rest_server_drogon
-# Crow is header-only, clone from: https://github.com/CrowCpp/Crow
 
 # Fedora/RHEL
 sudo dnf install drogon-devel jsoncpp-devel    # For rest_server_drogon
@@ -377,9 +329,7 @@ make -j$(nproc)
 ```
 
 Executables will be in `build/server/`:
-- `rest_server` (always built)
 - `rest_server_drogon` (if Drogon is installed)
-- `rest_server_crow` (if Crow is installed)
 - `interactive_server` (always built)
 
 ### Build Specific Servers
@@ -387,14 +337,8 @@ Executables will be in `build/server/`:
 ```bash
 cd build
 
-# Build only the raw socket server
-make rest_server
-
 # Build only the interactive CLI
 make interactive_server
-
-# Build only Crow server (requires Crow)
-make rest_server_crow
 
 # Build only Drogon server (requires Drogon)
 make rest_server_drogon
@@ -404,9 +348,6 @@ make rest_server_drogon
 
 ```bash
 cd build
-
-# Rebuild specific server after source changes
-make rest_server
 
 # Force clean rebuild
 rm -rf *
@@ -439,10 +380,10 @@ cd build/server
 ls -lh rest_*
 
 # Test run (should show usage or start server)
-./rest_server --help 2>/dev/null || ./rest_server 8080 &
+./rest_server_drogon --help 2>/dev/null || ./rest_server_drogon 8080 &
 sleep 1
 curl http://localhost:8080/stats
-pkill rest_server
+pkill rest_server_drogon
 ```
 
 ---
@@ -452,7 +393,7 @@ pkill rest_server
 ### 1. Start a REST Server
 ```bash
 cd build/server
-./rest_server_drogon 8080  # Or use rest_server, rest_server_crow
+./rest_server_drogon 8080
 ```
 
 ### 2. Test with curl
@@ -483,7 +424,6 @@ python3 -m http.server 3000
 | Server | Throughput | Latency (p50) | Dependencies | Best For |
 |--------|------------|---------------|--------------|----------|
 | **Raw Socket** | ~5k req/s | ~2ms | None | Learning, embedded |
-| **Crow** | ~20k req/s | ~1ms | Crow, Asio | Prototyping, small scale |
 | **Drogon** | ~50k+ req/s | ~0.5ms | Drogon, JsonCpp | Production, high load |
 
 *Benchmarks run on Apple M1 Pro, 10 concurrent connections*
@@ -542,7 +482,7 @@ To use your own data:
 lsof -i :8080
 
 # Use a different port
-./rest_server 8081
+./rest_server_drogon 8081
 ```
 
 ### CORS Errors in Web UI
@@ -555,7 +495,6 @@ All servers have CORS enabled by default. If issues persist:
 ```bash
 # Install missing frameworks
 brew install drogon  # For rest_server_drogon
-brew install crow    # For rest_server_crow
 ```
 
 ### Can't Load Sample Data
@@ -563,7 +502,7 @@ Ensure you run servers from the build directory:
 ```bash
 cd build/server
 ./rest_server_drogon  # Will load ../data/wikipedia_sample.json
-# Or use: ./rest_server, ./rest_server_crow, ./interactive_server
+# Or use: ./interactive_server
 ```
 
 ---

@@ -71,7 +71,7 @@ The engine already tracks token positions and character offsets via the `Token` 
 | `SearchOptions` struct | Add `generate_snippets`, `snippet_length`, `num_snippets` |
 | New: `SnippetExtractor` class | Create |
 | `SearchEngine::search()` | Call snippet extractor post-scoring |
-| `rest_server_crow.cpp` | Parse highlight params, include snippets in response |
+| `rest_server_drogon.cpp` | Parse highlight params, include snippets in response |
 | `web_ui/` | Render highlighted snippets in results |
 
 ### Acceptance Criteria
@@ -133,7 +133,7 @@ Users frequently misspell search queries. Without fuzzy matching, misspelled que
 | `SearchOptions` struct | Add `fuzzy_enabled`, `max_edit_distance` |
 | `SearchEngine::search()` | Integrate fuzzy term expansion |
 | `InvertedIndex` | Expose vocabulary iterator for n-gram index build |
-| `rest_server_crow.cpp` | Parse fuzzy params, return expanded terms |
+| `rest_server_drogon.cpp` | Parse fuzzy params, return expanded terms |
 
 ### Acceptance Criteria
 
@@ -199,7 +199,7 @@ In production workloads, a significant portion of queries are repeated (Zipf dis
 | `SearchEngine::indexDocument/update/delete` | Invalidate cache |
 | `SearchOptions` struct | Add `use_cache` |
 | `IndexStatistics` or new `CacheStatistics` | Add cache metrics |
-| `rest_server_crow.cpp` | Add `/cache/stats`, `DELETE /cache`, cache param |
+| `rest_server_drogon.cpp` | Add `/cache/stats`, `DELETE /cache`, cache param |
 
 ### Acceptance Criteria
 
@@ -260,7 +260,7 @@ Any real-world search UI needs pagination. Returning all results at once is impr
 | `SearchOptions` struct | Add `offset`, `search_after_score`, `search_after_id` |
 | New: `PaginationInfo` struct | Create |
 | `SearchEngine::search()` | Implement offset slicing and cursor logic |
-| `rest_server_crow.cpp` | Parse pagination params, return pagination metadata |
+| `rest_server_drogon.cpp` | Parse pagination params, return pagination metadata |
 | `web_ui/` | Add pagination controls |
 
 ### Acceptance Criteria
@@ -325,7 +325,7 @@ In most document corpora, a match in the title is far more relevant than a match
 | `TfIdfRanker`, `Bm25Ranker` | Implement field-aware scoring |
 | `SearchOptions` struct | Add `field_boosts` |
 | `SearchEngine::search()` | Pass boosts to ranker |
-| `rest_server_crow.cpp` | Parse boost parameters |
+| `rest_server_drogon.cpp` | Parse boost parameters |
 
 ### Acceptance Criteria
 
@@ -394,7 +394,7 @@ Auto-complete is one of the most visible and impactful UX features in search eng
 | `SearchEngine` | Add trie member, `suggest()` method |
 | `SearchEngine::indexDocument()` | Feed terms into trie |
 | `SearchEngine::deleteDocument()` | Remove terms from trie |
-| `rest_server_crow.cpp` | Add `/suggest` endpoint |
+| `rest_server_drogon.cpp` | Add `/suggest` endpoint |
 | `web_ui/` | Add suggestion dropdown, debounced API calls |
 
 ### Acceptance Criteria
@@ -464,7 +464,7 @@ Users often search with different vocabulary than what appears in the documents.
 | `SearchOptions` struct | Add `expand_synonyms` |
 | `SearchEngine` | Add expander member, integrate into search flow |
 | `SearchEngine::search()` | Expand query terms before scoring |
-| `rest_server_crow.cpp` | Parse synonym params, add management endpoints |
+| `rest_server_drogon.cpp` | Parse synonym params, add management endpoints |
 | New: `data/synonyms.json` | Create default dictionary |
 
 ### Acceptance Criteria
@@ -533,7 +533,7 @@ Faceted search is essential for e-commerce, knowledge bases, and any structured 
 | `SearchEngine` | Add facet index member, compute facets during search |
 | `SearchEngine::indexDocument()` | Populate facet index |
 | `SearchEngine::deleteDocument()` | Remove from facet index |
-| `rest_server_crow.cpp` | Parse facet params, return facet results |
+| `rest_server_drogon.cpp` | Parse facet params, return facet results |
 | `web_ui/` | Add facet sidebar panel |
 
 ### Acceptance Criteria
@@ -604,7 +604,7 @@ Wildcard and regex search are important for advanced users, log analysis, and sc
 | `QueryParser` | Detect and parse wildcard/regex patterns |
 | `SearchEngine::search()` | Expand wildcard/regex terms before index lookup |
 | `InvertedIndex` | Expose vocabulary iteration for pattern matching |
-| `rest_server_crow.cpp` | Return expanded terms, expansion limit param |
+| `rest_server_drogon.cpp` | Return expanded terms, expansion limit param |
 
 ### Acceptance Criteria
 
