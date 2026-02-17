@@ -18,6 +18,7 @@ add_executable(search_engine_tests
     integration_test.cpp
     document_loader_test.cpp
     top_k_heap_test.cpp
+    snippet_extractor_test.cpp
 )
 
 target_link_libraries(search_engine_tests

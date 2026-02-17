@@ -116,6 +116,23 @@ int main(int argc, char* argv[]) {
             options.use_top_k_heap = (heap_val == "true" || heap_val == "1");
         }
         
+        // Snippet / highlighting options
+        auto highlight = req.url_params.get("highlight");
+        if (highlight) {
+            std::string hl_val = std::string(highlight);
+            options.generate_snippets = (hl_val == "true" || hl_val == "1");
+        }
+        
+        auto snippet_length = req.url_params.get("snippet_length");
+        if (snippet_length) {
+            options.snippet_options.max_snippet_length = std::stoul(std::string(snippet_length));
+        }
+        
+        auto num_snippets = req.url_params.get("num_snippets");
+        if (num_snippets) {
+            options.snippet_options.num_snippets = std::stoul(std::string(num_snippets));
+        }
+        
         auto results = g_engine->search(q, options);
         
         // Build JSON response
@@ -128,6 +145,16 @@ int main(int argc, char* argv[]) {
             item["score"] = result.score;
             item["document"]["id"] = result.document.id;
             item["document"]["content"] = result.document.getAllText();
+            
+            // Include snippets if highlighting was requested
+            if (!result.snippets.empty()) {
+                std::vector<crow::json::wvalue> snippet_array;
+                for (const auto& snippet : result.snippets) {
+                    snippet_array.push_back(snippet);
+                }
+                item["snippets"] = std::move(snippet_array);
+            }
+            
             result_array.push_back(std::move(item));
         }
         response["results"] = std::move(result_array);
@@ -392,7 +419,7 @@ int main(int argc, char* argv[]) {
     std::cout << "=== Search Engine REST Server (Crow) ===\n";
     std::cout << "Server listening on http://localhost:" << port << "\n";
     std::cout << "Endpoints:\n";
-    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>\n";
+    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>&highlight=<true|false>&snippet_length=<n>&num_snippets=<n>\n";
     std::cout << "  GET    /stats\n";
     std::cout << "  POST   /index - body: {\"id\": number, \"content\": \"text\"}\n";
     std::cout << "  DELETE /delete/<id>\n";
