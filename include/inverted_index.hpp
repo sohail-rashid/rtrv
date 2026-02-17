@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include <shared_mutex>
+#include <unordered_set>
 
 namespace search_engine {
 
@@ -137,6 +138,17 @@ public:
      * Rebuild skip pointers for a specific term
      */
     void rebuildSkipPointers(const std::string& term);
+    
+    /**
+     * Get all unique terms in the vocabulary.
+     * Used by FuzzySearch to build the n-gram index.
+     */
+    std::unordered_set<std::string> getVocabulary() const;
+    
+    /**
+     * Check if a term exists in the index.
+     */
+    bool hasTerm(const std::string& term) const;
     
 private:
     friend class Persistence;

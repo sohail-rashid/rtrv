@@ -44,14 +44,14 @@ TEST_F(DocumentLoaderTest, LoadJSONL_SimpleObjects) {
     
     EXPECT_EQ(docs.size(), 3);
     
-    // Check first document
-    EXPECT_EQ(docs[0].id, 0);
+    // Check first document (DocumentLoader starts IDs at 1)
+    EXPECT_EQ(docs[0].id, 1);
     EXPECT_EQ(docs[0].getField("title"), "First Document");
     EXPECT_EQ(docs[0].getField("content"), "This is the first document");
     EXPECT_GT(docs[0].term_count, 0);
     
     // Check second document
-    EXPECT_EQ(docs[1].id, 1);
+    EXPECT_EQ(docs[1].id, 2);
     EXPECT_EQ(docs[1].getField("title"), "Second Document");
     
     // Check third document

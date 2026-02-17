@@ -13,8 +13,8 @@ namespace search_engine {
 struct SnippetOptions {
     size_t max_snippet_length = 150;      // Max characters per snippet
     size_t num_snippets = 3;              // Number of snippets to generate
-    std::string highlight_open = "<em>";   // Opening highlight tag
-    std::string highlight_close = "</em>"; // Closing highlight tag
+    std::string highlight_open = "<mark>";   // Opening highlight tag
+    std::string highlight_close = "</mark>"; // Closing highlight tag
 };
 
 /**
@@ -57,8 +57,8 @@ public:
     std::string highlightTerms(
         const std::string& text,
         const std::vector<std::string>& query_terms,
-        const std::string& open_tag = "<em>",
-        const std::string& close_tag = "</em>") const;
+        const std::string& open_tag = "<mark>",
+        const std::string& close_tag = "</mark>") const;
 
 private:
     /**

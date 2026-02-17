@@ -1,0 +1,1 @@
+/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/rest_server_drogon.dir/rest_server_drogon.cpp.o -o rest_server_drogon  -Wl,-rpath,/opt/homebrew/lib -lsearch_engine /opt/homebrew/lib/libdrogon.1.9.11.dylib /opt/homebrew/lib/libtrantor.1.5.24.dylib /opt/homebrew/lib/libjsoncpp.dylib

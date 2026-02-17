@@ -231,4 +231,20 @@ void InvertedIndex::rebuildSkipPointers(const std::string& term) {
     }
 }
 
+std::unordered_set<std::string> InvertedIndex::getVocabulary() const {
+    std::shared_lock lock(mutex_);
+    
+    std::unordered_set<std::string> vocabulary;
+    vocabulary.reserve(index_.size());
+    for (const auto& [term, _] : index_) {
+        vocabulary.insert(term);
+    }
+    return vocabulary;
+}
+
+bool InvertedIndex::hasTerm(const std::string& term) const {
+    std::shared_lock lock(mutex_);
+    return index_.count(term) > 0;
+}
+
 } 

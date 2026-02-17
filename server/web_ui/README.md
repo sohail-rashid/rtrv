@@ -65,7 +65,7 @@ This will:
 1. **Start the REST API Server:**
 ```bash
 cd build/server
-./rest_server_drogon  # or rest_server_crow, or rest_server
+./rest_server_drogon
 ```
 
 2. **Serve the Web UI:**

@@ -1,0 +1,1 @@
+/usr/bin/c++  -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/interactive_server.dir/rest_server_interactive.cpp.o -o interactive_server  -lsearch_engine

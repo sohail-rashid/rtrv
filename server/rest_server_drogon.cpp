@@ -21,6 +21,11 @@ void handleSearch(const HttpRequestPtr& req,
     auto algorithm = req->getParameter("algorithm");
     auto max_results_str = req->getParameter("max_results");
     auto use_heap_str = req->getParameter("use_top_k_heap");
+    auto highlight_str = req->getParameter("highlight");
+    auto snippet_length_str = req->getParameter("snippet_length");
+    auto num_snippets_str = req->getParameter("num_snippets");
+    auto fuzzy_str = req->getParameter("fuzzy");
+    auto max_edit_dist_str = req->getParameter("max_edit_distance");
     
     Json::Value response;
     
@@ -42,6 +47,26 @@ void handleSearch(const HttpRequestPtr& req,
     if (!use_heap_str.empty()) {
         options.use_top_k_heap = (use_heap_str == "true" || use_heap_str == "1");
     }
+
+    // Snippet / highlighting options
+    if (!highlight_str.empty()) {
+        options.generate_snippets = (highlight_str == "true" || highlight_str == "1");
+    }
+    if (!snippet_length_str.empty()) {
+        options.snippet_options.max_snippet_length = std::stoul(snippet_length_str);
+    }
+    if (!num_snippets_str.empty()) {
+        options.snippet_options.num_snippets = std::stoul(num_snippets_str);
+    }
+
+    // Fuzzy search options
+    if (!fuzzy_str.empty()) {
+        options.fuzzy_enabled = (fuzzy_str == "true" || fuzzy_str == "1");
+    }
+    if (!max_edit_dist_str.empty()) {
+        options.max_edit_distance = static_cast<uint32_t>(std::stoul(max_edit_dist_str));
+    }
+
     
     auto results = g_engine->search(query, options);
     
@@ -51,6 +76,24 @@ void handleSearch(const HttpRequestPtr& req,
         item["score"] = result.score;
         item["document"]["id"] = (Json::UInt64)result.document.id;
         item["document"]["content"] = result.document.getAllText();
+
+        // Include snippets if highlighting was requested
+        if (!result.snippets.empty()) {
+            Json::Value snippet_array(Json::arrayValue);
+            for (const auto& snippet : result.snippets) {
+                snippet_array.append(snippet);
+            }
+            item["snippets"] = std::move(snippet_array);
+        }
+
+        // Include fuzzy expanded terms if any
+        if (!result.expanded_terms.empty()) {
+            Json::Value expanded;
+            for (const auto& entry : result.expanded_terms) {
+                expanded[entry.first] = entry.second;
+            }
+            item["expanded_terms"] = std::move(expanded);
+        }
         resultsArray.append(item);
     }
     
