@@ -1,6 +1,7 @@
 #include "search_engine.hpp"
 #include "persistence.hpp"
 #include "top_k_heap.hpp"
+#include "snippet_extractor.hpp"
 
 namespace search_engine {
 
@@ -225,6 +226,15 @@ std::vector<SearchResult> SearchEngine::search(const std::string& query,
         // Return top-K results
         if (results.size() > options.max_results) {
             results.resize(options.max_results);
+        }
+    }
+    
+    // Post-process: generate snippets if requested
+    if (options.generate_snippets && !results.empty()) {
+        for (auto& result : results) {
+            std::string doc_text = result.document.getAllText();
+            result.snippets = snippet_extractor_.generateSnippets(
+                doc_text, query_terms, options.snippet_options);
         }
     }
     

@@ -5,6 +5,7 @@
 #include "inverted_index.hpp"
 #include "ranker.hpp"
 #include "query_parser.hpp"
+#include "snippet_extractor.hpp"
 #include <string>
 #include <vector>
 #include <memory>
@@ -20,6 +21,10 @@ struct SearchOptions {
     bool explain_scores = false;
     bool use_top_k_heap = true;  // Use bounded priority queue for Top-K retrieval
     
+    // Snippet / highlighting options
+    bool generate_snippets = false;      // Enable snippet generation
+    SnippetOptions snippet_options;       // Snippet configuration
+    
     // Deprecated: Use ranker_name instead
     enum RankingAlgorithm { TF_IDF, BM25 };
     RankingAlgorithm algorithm = BM25;  // For backward compatibility
@@ -31,7 +36,8 @@ struct SearchOptions {
 struct SearchResult {
     Document document;
     double score;
-    std::string explanation;  // Optional score breakdown
+    std::string explanation;              // Optional score breakdown
+    std::vector<std::string> snippets;    // Highlighted snippets (populated when generate_snippets=true)
     
     // Comparison operators for sorting and heap operations
     bool operator>(const SearchResult& other) const {
@@ -99,6 +105,9 @@ public:
     InvertedIndex* getIndex() { return index_.get(); }
     const InvertedIndex* getIndex() const { return index_.get(); }
     
+    // Get snippet extractor for direct use
+    const SnippetExtractor& getSnippetExtractor() const { return snippet_extractor_; }
+    
     // Tokenizer configuration
     void enableSIMD(bool enabled) { if (tokenizer_) tokenizer_->enableSIMD(enabled); }
     void setStemmer(StemmerType type) { if (tokenizer_) tokenizer_->setStemmer(type); }
@@ -114,6 +123,7 @@ private:
     std::unique_ptr<InvertedIndex> index_;
     std::unique_ptr<QueryParser> query_parser_;
     std::unique_ptr<RankerRegistry> ranker_registry_;
+    SnippetExtractor snippet_extractor_;
     std::unordered_map<uint64_t, Document> documents_;
     uint64_t next_doc_id_;
 };

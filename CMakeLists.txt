@@ -26,6 +26,7 @@ add_library(search_engine
     src/query_parser.cpp
     src/search_engine.cpp
     src/persistence.cpp
+    src/snippet_extractor.cpp
 )
 
 target_include_directories(search_engine PUBLIC include)
