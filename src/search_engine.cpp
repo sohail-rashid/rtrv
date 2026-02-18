@@ -413,6 +413,22 @@ CacheStatistics SearchEngine::getCacheStats() const {
     return query_cache_.getStats();
 }
 
+std::vector<std::pair<uint64_t, Document>> SearchEngine::getDocuments(size_t offset, size_t limit) const {
+    std::shared_lock lock(mutex_);
+    std::vector<std::pair<uint64_t, Document>> result;
+    result.reserve(std::min(limit, documents_.size()));
+
+    size_t i = 0;
+    for (const auto& [id, doc] : documents_) {
+        if (i >= offset + limit) break;
+        if (i >= offset) {
+            result.emplace_back(id, doc);
+        }
+        ++i;
+    }
+    return result;
+}
+
 void SearchEngine::clearCache() {
     query_cache_.clear();
 }

@@ -6,173 +6,255 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Rtrv - Blazing Fast Enterprise In-Memory Search</title>
-    <link rel="stylesheet" href="style.css?v=2.0">
+    <title>Rtrv - Enterprise Search</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    </style>
+    <link rel="stylesheet" href="style.css?v=7.0">
 </head>
 <body>
-    <div class="container">
-        <header>
+    <div class="app-container">
+        <!-- Top Navigation / Brand -->
+        <nav class="top-nav">
             <div class="brand">
                 <div class="logo">
-                    <svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+                    <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" fill="none">
                         <defs>
-                            <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1">
-                                    <animate attributeName="stop-color" values="#ffffff;#f093fb;#667eea;#ffffff" dur="6s" repeatCount="indefinite"/>
-                                </stop>
-                                <stop offset="100%" style="stop-color:#667eea;stop-opacity:1">
-                                    <animate attributeName="stop-color" values="#667eea;#764ba2;#f093fb;#667eea" dur="6s" repeatCount="indefinite"/>
-                                </stop>
+                            <linearGradient id="lg1" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stop-color="#a78bfa"/>
+                                <stop offset="50%" stop-color="#818cf8"/>
+                                <stop offset="100%" stop-color="#6366f1"/>
                             </linearGradient>
-                            <filter id="glow">
-                                <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
-                                <feMerge>
-                                    <feMergeNode in="coloredBlur"/>
-                                    <feMergeNode in="SourceGraphic"/>
-                                </feMerge>
-                            </filter>
                         </defs>
-                        
-                        <!-- Hexagon shape -->
-                        <path d="M 40 5 L 70 20 L 70 50 L 40 65 L 10 50 L 10 20 Z" fill="none" stroke="url(#logoGradient)" stroke-width="2.5" opacity="0.8" filter="url(#glow)"/>
-                        
-                        <!-- Search magnifying glass -->
-                        <circle cx="35" cy="32" r="12" fill="none" stroke="url(#logoGradient)" stroke-width="3" filter="url(#glow)"/>
-                        <line x1="44" y1="41" x2="55" y2="52" stroke="url(#logoGradient)" stroke-width="3" stroke-linecap="round" filter="url(#glow)"/>
-                        
-                        <!-- Speed sparkles -->
-                        <circle cx="60" cy="25" r="2" fill="url(#logoGradient)" opacity="0.9"/>
-                        <circle cx="65" cy="35" r="1.5" fill="url(#logoGradient)" opacity="0.7"/>
-                        <circle cx="58" cy="42" r="1.8" fill="url(#logoGradient)" opacity="0.8"/>
-                        
-                        <!-- Lightning accent -->
-                        <path d="M 25 55 L 20 62 L 23 60 L 21 67" stroke="url(#logoGradient)" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.7" filter="url(#glow)"/>
+                        <rect x="4" y="4" width="40" height="40" rx="12" fill="url(#lg1)" />
+                        <circle cx="21" cy="21" r="8" stroke="white" stroke-width="2.5" fill="none" opacity="0.95"/>
+                        <line x1="27" y1="27" x2="34" y2="34" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.95"/>
+                        <circle cx="35" cy="14" r="2" fill="white" opacity="0.6"/>
+                        <circle cx="14" cy="35" r="1.5" fill="white" opacity="0.4"/>
                     </svg>
                 </div>
-                <h1>Rtrv</h1>
+                <div class="brand-text">
+                    <h1>Rtrv</h1>
+                    <span class="brand-tagline">BLAZING FAST IN-MEMORY Search Engine</span>
+                </div>
             </div>
-            <p class="subtitle">Blazing Fast Enterprise In-Memory Search</p>
-        </header>
-        
-        <div class="search-layout">
-            <!-- Left Sidebar -->
+
+            <div class="nav-right">
+                <div class="nav-version">v2.0</div>
+            </div>
+        </nav>
+
+        <div class="main-layout">
+            <!-- Sidebar -->
             <aside class="sidebar">
-                <div class="sidebar-section">
-                    <h3 class="sidebar-title">🎯 Search Parameters</h3>
-                    
-                    <div class="param-group">
-                        <label class="param-label">Ranking Algorithm</label>
-                        <div class="radio-group">
-                            <label class="radio-option">
-                                <input type="radio" name="algorithm" value="bm25" checked>
-                                <span class="radio-text">BM25</span>
-                                <span class="badge recommended">Recommended</span>
-                            </label>
-                            <label class="radio-option">
-                                <input type="radio" name="algorithm" value="tfidf">
-                                <span class="radio-text">TF-IDF</span>
-                            </label>
-                        </div>
+                <!-- View Switcher -->
+                <div class="sidebar-view-switcher">
+                    <div class="nav-pill active" data-view="search">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        Search
                     </div>
-                    
-                    <div class="param-group">
-                        <label class="param-label">Optimization</label>
-                        <label class="checkbox-option">
-                            <input type="checkbox" id="useTopKHeap" checked>
-                            <span>Top-K Heap</span>
-                            <span class="badge fast">⚡ Fast</span>
-                        </label>
-                        <p class="param-hint">50-150x faster for K &lt; 1000</p>
-                    </div>
-                    
-                    <div class="param-group">
-                        <label class="param-label">Max Results</label>
-                        <input type="number" id="maxResults" value="10" min="1" max="1000" class="number-input">
-                        <p class="param-hint">Number of results to return</p>
-                    </div>
-                    
-                    <button id="advancedToggle" class="toggle-btn">⚙️ Advanced Options</button>
-                    
-                    <div id="advancedOptions" class="advanced-options" style="display: none;">
-                        <div class="param-group">
-                            <label class="checkbox-option">
-                                <input type="checkbox" id="earlyTermination" checked>
-                                <span>Early Termination</span>
-                            </label>
-                        </div>
-                        <div class="param-group">
-                            <label class="checkbox-option">
-                                <input type="checkbox" id="useCache" checked>
-                                <span>Query Cache</span>
-                            </label>
-                        </div>
+                    <div class="nav-pill" data-view="index">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        Index
                     </div>
                 </div>
-                
-                <div class="sidebar-section query-reference">
-                    <h3 class="sidebar-title">📚 Query Syntax</h3>
-                    <div class="query-examples">
-                        <div class="query-example">
-                            <code class="query-code">machine</code>
-                            <span class="query-desc">Simple term</span>
+
+                <div class="sidebar-section">
+                    <h3 class="sidebar-title">Configuration</h3>
+                    
+                    <div class="param-group">
+                        <label class="param-label">Ranking Model</label>
+                        <div class="radio-group-modern">
+                            <label class="radio-option-modern">
+                                <input type="radio" name="algorithm" value="bm25" checked>
+                                <span class="radio-content">
+                                    <span class="radio-title">BM25</span>
+                                    <span class="radio-desc">Best for general text</span>
+                                </span>
+                            </label>
+                            <label class="radio-option-modern">
+                                <input type="radio" name="algorithm" value="tfidf">
+                                <span class="radio-content">
+                                    <span class="radio-title">TF-IDF</span>
+                                    <span class="radio-desc">Classic statistical</span>
+                                </span>
+                            </label>
                         </div>
-                        <div class="query-example">
-                            <code class="query-code">"machine learning"</code>
-                            <span class="query-desc">Phrase query</span>
+                    </div>
+                    
+                    <div class="param-group">
+                        <label class="param-label">Performance</label>
+                        <label class="checkbox-modern">
+                            <input type="checkbox" id="useTopKHeap" checked>
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">Top-K Heap Optimization</span>
+                        </label>
+                        <label class="checkbox-modern">
+                            <input type="checkbox" id="useCache" checked>
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">Query Caching</span>
+                        </label>
+                    </div>
+
+                     <div class="param-group">
+                        <label class="param-label">Max Results</label>
+                        <div class="input-with-suffix">
+                            <input type="number" id="maxResults" value="10" min="1" max="1000" class="number-input-modern">
+                            <span class="input-suffix">docs</span>
                         </div>
-                        <div class="query-example">
-                            <code class="query-code">machine AND learning</code>
-                            <span class="query-desc">Boolean AND</span>
-                        </div>
-                        <div class="query-example">
-                            <code class="query-code">machine OR learning</code>
-                            <span class="query-desc">Boolean OR</span>
-                        </div>
-                        <div class="query-example">
-                            <code class="query-code">machine NOT learning</code>
-                            <span class="query-desc">Boolean NOT</span>
-                        </div>
-                        <div class="query-example">
-                            <code class="query-code">title:machine</code>
-                            <span class="query-desc">Fielded query</span>
-                        </div>
-                        <div class="query-example">
-                            <code class="query-code">(machine OR ai) AND learning</code>
-                            <span class="query-desc">Nested boolean</span>
-                        </div>
-                        <div class="query-example">
-                            <code class="query-code">"machine learning"~5</code>
-                            <span class="query-desc">Proximity (within 5 words)</span>
-                        </div>
-                        <div class="query-example">
-                            <code class="query-code">machine learning</code>
-                            <span class="query-desc">Implicit AND</span>
-                        </div>
+                    </div>
+
+                    <button id="advancedToggle" class="text-btn">Advanced Settings</button>
+                    
+                    <div id="advancedOptions" class="advanced-options" style="display: none;">
+                        <label class="checkbox-modern">
+                            <input type="checkbox" id="earlyTermination" checked>
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">Early Termination</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="sidebar-footer">
+                    <div class="system-status">
+                        <span class="status-dot"></span>
+                        System Operational
                     </div>
                 </div>
             </aside>
             
             <!-- Main Content -->
-            <main class="main-content">
-                <div class="search-box">
-                    <div class="search-input-wrapper">
-                        <span class="search-icon">🔎</span>
-                        <input type="text" id="searchInput" placeholder='Try: "machine learning", title:algorithm, (ai OR ml) AND data'>
-                        <button id="clearButton" class="clear-btn" title="Clear search">✕</button>
+            <main class="content-area">
+                <!-- ====== SEARCH VIEW ====== -->
+                <div id="searchView" class="view-panel active">
+                <div class="search-header">
+                    <div class="search-container">
+                        <div class="search-box-modern">
+                            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="searchInput" placeholder="Search across documents, titles, and metadata...">
+                            <div class="search-actions">
+                                <button id="clearButton" class="icon-btn" title="Clear">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                                <div class="divider"></div>
+                                <button id="searchButton" class="primary-btn">Search</button>
+                            </div>
+                        </div>
+                        <div class="search-tips">
+                            <span>Try:</span>
+                            <code class="tag">machine learning</code>
+                            <code class="tag">"exact phrase"</code>
+                            <code class="tag">title:report</code>
+                        </div>
                     </div>
-                    <button id="searchButton" class="primary-btn">
-                        <span class="btn-icon">🚀</span>
-                        <span class="btn-text">Search</span>
-                    </button>
                 </div>
                 
-                <div id="stats" class="stats"></div>
+                <div id="stats" class="stats-area"></div>
                 
-                <div id="results" class="results"></div>
+                <div id="results" class="results-list">
+                    <!-- Empty State -->
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </div>
+                        <h3>Ready to search</h3>
+                        <p>Enter a query above to search through the index.</p>
+                    </div>
+                </div>
+                </div><!-- /searchView -->
+
+                <!-- ====== INDEX VIEW ====== -->
+                <div id="indexView" class="view-panel">
+                    <div class="index-header">
+                        <h2 class="index-title">Index Overview</h2>
+                        <p class="index-subtitle">Monitor and manage your document index</p>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="index-stats-grid" id="indexStatsGrid">
+                        <div class="idx-card">
+                            <div class="idx-card-icon idx-card-icon--docs">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            </div>
+                            <div class="idx-card-body">
+                                <span class="idx-card-label">Documents</span>
+                                <span class="idx-card-value" id="statTotalDocs">—</span>
+                            </div>
+                        </div>
+                        <div class="idx-card">
+                            <div class="idx-card-icon idx-card-icon--terms">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                            </div>
+                            <div class="idx-card-body">
+                                <span class="idx-card-label">Unique Terms</span>
+                                <span class="idx-card-value" id="statTotalTerms">—</span>
+                            </div>
+                        </div>
+                        <div class="idx-card">
+                            <div class="idx-card-icon idx-card-icon--avg">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            </div>
+                            <div class="idx-card-body">
+                                <span class="idx-card-label">Avg Doc Length</span>
+                                <span class="idx-card-value" id="statAvgLen">—</span>
+                            </div>
+                        </div>
+                        <div class="idx-card">
+                            <div class="idx-card-icon idx-card-icon--cache">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            </div>
+                            <div class="idx-card-body">
+                                <span class="idx-card-label">Cache Hit Rate</span>
+                                <span class="idx-card-value" id="statCacheRate">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cache Details -->
+                    <div class="index-section">
+                        <h3 class="index-section-title">Cache Statistics</h3>
+                        <div class="cache-detail-grid" id="cacheDetailGrid">
+                            <div class="cache-detail"><span class="cache-detail-label">Hits</span><span class="cache-detail-value" id="cacheHits">—</span></div>
+                            <div class="cache-detail"><span class="cache-detail-label">Misses</span><span class="cache-detail-value" id="cacheMisses">—</span></div>
+                            <div class="cache-detail"><span class="cache-detail-label">Evictions</span><span class="cache-detail-value" id="cacheEvictions">—</span></div>
+                            <div class="cache-detail"><span class="cache-detail-label">Size</span><span class="cache-detail-value" id="cacheSize">—</span></div>
+                        </div>
+                        <button id="clearCacheBtn" class="idx-action-btn idx-action-btn--danger">Clear Cache</button>
+                    </div>
+
+                    <!-- Add Document -->
+                    <div class="index-section">
+                        <h3 class="index-section-title">Add Document</h3>
+                        <div class="idx-form">
+                            <div class="idx-form-row">
+                                <label class="idx-form-label" for="docIdInput">Document ID</label>
+                                <input type="number" id="docIdInput" class="idx-form-input" placeholder="e.g. 101" min="1">
+                            </div>
+                            <div class="idx-form-row">
+                                <label class="idx-form-label" for="docContentInput">Content</label>
+                                <textarea id="docContentInput" class="idx-form-textarea" rows="4" placeholder="Enter document text..."></textarea>
+                            </div>
+                            <div class="idx-form-actions">
+                                <button id="addDocBtn" class="idx-action-btn idx-action-btn--primary">Add to Index</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Delete Document -->
+                    <div class="index-section">
+                        <h3 class="index-section-title">Delete Document</h3>
+                        <div class="idx-form">
+                            <div class="idx-form-row idx-form-row--inline">
+                                <input type="number" id="deleteDocIdInput" class="idx-form-input" placeholder="Document ID" min="1">
+                                <button id="deleteDocBtn" class="idx-action-btn idx-action-btn--danger">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /indexView -->
             </main>
         </div>
     </div>
     
-    <script src="app.js?v=2.1" defer></script>
+    <script src="app.js?v=7.0" defer></script>
 </body>
 </html>

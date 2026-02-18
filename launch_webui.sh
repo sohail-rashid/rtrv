@@ -17,7 +17,7 @@ REST_PORT=8080
 # Server priority: rest_server_drogon (fastest)
 # The script will use the first available server from the build directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-BUILD_DIR="$SCRIPT_DIR/../../build/server"
+BUILD_DIR="$SCRIPT_DIR/build/server"
 
 # PID files for cleanup
 REST_PID=""
@@ -41,7 +41,7 @@ trap cleanup EXIT INT TERM
 if [ ! -d "$BUILD_DIR" ]; then
     echo -e "${RED}❌ Error: Build directory not found: $BUILD_DIR${NC}"
     echo -e "${YELLOW}   Please build the project first:${NC}"
-    echo -e "   cd $SCRIPT_DIR/../.."
+    echo -e "   cd $SCRIPT_DIR"
     echo -e "   mkdir -p build && cd build"
     echo -e "   cmake .. && make"
     exit 1

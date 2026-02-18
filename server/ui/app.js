@@ -5,12 +5,16 @@ const CONFIG = {
     requestTimeoutMs: 4000,
     enableFuzzy: true,
     enableHighlight: true,
-    defaultMaxResults: 10
+    defaultMaxResults: 10,
+    statsRefreshMs: 15000
 };
 
 const dom = {};
+let currentView = 'search';
+let statsInterval = null;
 
 function cacheDom() {
+    // Search view
     dom.searchInput = document.getElementById('searchInput');
     dom.searchButton = document.getElementById('searchButton');
     dom.clearButton = document.getElementById('clearButton');
@@ -20,12 +24,34 @@ function cacheDom() {
     dom.advancedOptions = document.getElementById('advancedOptions');
     dom.useTopKHeap = document.getElementById('useTopKHeap');
     dom.maxResults = document.getElementById('maxResults');
+
+    // Views
+    dom.searchView = document.getElementById('searchView');
+    dom.indexView = document.getElementById('indexView');
+
+    // Nav pills
+    dom.navPills = document.querySelectorAll('.nav-pill');
+
+    // Index view
+    dom.statTotalDocs = document.getElementById('statTotalDocs');
+    dom.statTotalTerms = document.getElementById('statTotalTerms');
+    dom.statAvgLen = document.getElementById('statAvgLen');
+    dom.statCacheRate = document.getElementById('statCacheRate');
+    dom.cacheHits = document.getElementById('cacheHits');
+    dom.cacheMisses = document.getElementById('cacheMisses');
+    dom.cacheEvictions = document.getElementById('cacheEvictions');
+    dom.cacheSize = document.getElementById('cacheSize');
+    dom.clearCacheBtn = document.getElementById('clearCacheBtn');
+    dom.docIdInput = document.getElementById('docIdInput');
+    dom.docContentInput = document.getElementById('docContentInput');
+    dom.addDocBtn = document.getElementById('addDocBtn');
+    dom.deleteDocIdInput = document.getElementById('deleteDocIdInput');
+    dom.deleteDocBtn = document.getElementById('deleteDocBtn');
 }
 
 function init() {
     cacheDom();
     attachEventListeners();
-    initBackgroundAnimation();
 }
 
 function attachEventListeners() {
@@ -41,55 +67,78 @@ function attachEventListeners() {
         dom.advancedToggle.addEventListener('click', () => {
             const isVisible = dom.advancedOptions.style.display !== 'none';
             dom.advancedOptions.style.display = isVisible ? 'none' : 'block';
-            dom.advancedToggle.textContent = isVisible ? '⚙️ Advanced Options' : '⚙️ Hide Advanced';
+            dom.advancedToggle.textContent = isVisible ? 'Close Advanced Settings' : 'Advanced Settings';
         });
     }
+
+    // Nav pill tab switching (use data-view attribute)
+    dom.navPills.forEach(pill => {
+        pill.addEventListener('click', () => {
+            const view = pill.getAttribute('data-view') || pill.textContent.trim().toLowerCase();
+            switchView(view === 'index' ? 'index' : 'search');
+        });
+    });
+
+    // Index view actions
+    if (dom.addDocBtn) dom.addDocBtn.addEventListener('click', addDocument);
+    if (dom.deleteDocBtn) dom.deleteDocBtn.addEventListener('click', deleteDocument);
+    if (dom.clearCacheBtn) dom.clearCacheBtn.addEventListener('click', clearCache);
 }
 
 function clearSearch() {
     dom.searchInput.value = '';
-    dom.results.innerHTML = '';
+    dom.results.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-icon">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+            <h3>Ready to search</h3>
+            <p>Enter a query above to search through the index.</p>
+        </div>
+    `;
     dom.stats.innerHTML = '';
 }
 
 async function performSearch() {
-    const query = dom.searchInput.value.trim();
+    const rawQuery = dom.searchInput.value.trim();
     const algorithm = getSelectedAlgorithm();
     const maxResults = parsePositiveInt(dom.maxResults.value, CONFIG.defaultMaxResults);
     const useTopKHeap = dom.useTopKHeap ? dom.useTopKHeap.checked : true;
-
-    if (!query) {
-        showToast('Please enter a search query.', 'warning');
-        return;
-    }
 
     setSearchLoading(true);
     const startTime = performance.now();
 
     try {
-        const data = await fetchSearchResults(query, algorithm, maxResults, useTopKHeap);
+        let data;
+
+        if (!rawQuery) {
+            // Empty query => list documents from /documents endpoint
+            const url = `${CONFIG.apiBase}/documents?offset=0&limit=${maxResults}`;
+            const resp = await fetchWithTimeout(url, CONFIG.requestTimeoutMs);
+            data = await resp.json();
+        } else {
+            data = await fetchSearchResults(rawQuery, algorithm, maxResults, useTopKHeap);
+        }
 
         const endTime = performance.now();
         data.query_time_ms = endTime - startTime;
         data.use_top_k_heap = useTopKHeap;
         data.algorithm = algorithm;
-        data.original_query = query;
+        data.original_query = rawQuery || 'All documents';
 
         const expanded = data.expanded_terms ||
             (data.results && data.results.length > 0 && data.results[0].expanded_terms) || {};
 
-        displayResults(data.results, query, expanded);
+        displayResults(data.results, rawQuery, expanded);
         displayStats(data);
 
-        if (expanded && Object.keys(expanded).length > 0) {
+        if (rawQuery && expanded && Object.keys(expanded).length > 0) {
             const corrections = Object.entries(expanded)
                 .map(([from, to]) => `"${from}" -> "${to}"`)
                 .join(', ');
-            showToast(`🔤 Applied fuzzy corrections: ${corrections}`, 'info');
+            showToast(`Applied fuzzy corrections: ${corrections}`, 'info');
         }
 
-        const resultText = data.total_results === 1 ? 'result' : 'results';
-        showToast(`✅ Found ${data.total_results} ${resultText} in ${data.query_time_ms.toFixed(2)}ms.`, 'success');
     } catch (error) {
         console.error('Search error:', error);
         dom.results.innerHTML =
@@ -122,11 +171,8 @@ async function fetchSearchResults(query, algorithm, maxResults, useTopKHeap) {
 }
 
 function setSearchLoading(isLoading) {
-    const btnText = dom.searchButton.querySelector('.btn-text');
-    const btnIcon = dom.searchButton.querySelector('.btn-icon');
     dom.searchButton.disabled = isLoading;
-    btnText.textContent = isLoading ? 'Searching...' : 'Search';
-    btnIcon.textContent = isLoading ? '⏳' : '🚀';
+    dom.searchButton.textContent = isLoading ? 'Searching...' : 'Search';
 }
 
 function getSelectedAlgorithm() {
@@ -142,11 +188,11 @@ function parsePositiveInt(value, fallback) {
     return parsed;
 }
 
-async function fetchWithTimeout(url, timeoutMs) {
+async function fetchWithTimeout(url, timeoutMs, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        return await fetch(url, { signal: controller.signal });
+        return await fetch(url, { ...options, signal: controller.signal });
     } finally {
         clearTimeout(timeoutId);
     }
@@ -156,60 +202,49 @@ function displayResults(results, query, expandedTerms) {
     expandedTerms = expandedTerms || {};
 
     if (!results || results.length === 0) {
-        dom.results.innerHTML = [
-            '<div class="no-results">',
-            '  <div class="no-results-icon">No results</div>',
-            '  <div class="no-results-title">No results found</div>',
-            '  <div class="no-results-text">Try different keywords or broaden your query.</div>',
-            '</div>'
-        ].join('');
+        dom.results.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </div>
+                <h3>No results found</h3>
+                <p>We couldn't find anything matching "${escapeHtml(query)}". Try different keywords.</p>
+            </div>
+        `;
         return;
     }
 
-    let html = '<div class="result-list">';
+    let html = '';
     results.forEach((result, index) => {
-        const content = result.snippets && result.snippets.length > 0
+        let content = result.snippets && result.snippets.length > 0
             ? result.snippets.join(' ')
-            : highlightQuery(result.document.content, query, expandedTerms);
+            : result.document.content; // Fallback to content if no snippets
+        
+        // If we didn't get snippets from backend but have content, highlight it manually
+        if ((!result.snippets || result.snippets.length === 0) && content) {
+             content = highlightQuery(content, query, expandedTerms);
+        }
 
-        const scorePercent = Math.min(100, (result.score / 10) * 100);
-        const scoreClass = result.score > 5 ? 'high-score' : result.score > 2 ? 'medium-score' : 'low-score';
+        const scoreClass = result.score > 5 ? 'score-high' : result.score > 2 ? 'score-med' : 'score-low';
+        const relevanceLabel = result.score > 5 ? 'High Relevance' : result.score > 2 ? 'Medium Relevance' : 'Low Relevance';
+        const docTitle = (result.document.fields && result.document.fields.title) ? result.document.fields.title : `Document ${result.document.id}`;
 
         html += `
-            <div class="result-item" data-index="${index}">
-                <div class="result-rank-container">
-                    <div class="result-rank">${index + 1}</div>
-                    <div class="result-score-badge ${scoreClass}">
-                        <div class="score-circle">
-                            <svg class="score-ring" width="50" height="50">
-                                <circle cx="25" cy="25" r="20" fill="none" stroke="#e0e0e0" stroke-width="3"/>
-                                <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="3"
-                                    stroke-dasharray="${scorePercent * 1.256} ${125.6 - scorePercent * 1.256}"
-                                    transform="rotate(-90 25 25)"/>
-                            </svg>
-                            <div class="score-text">${result.score.toFixed(1)}</div>
-                        </div>
-                    </div>
+            <div class="result-card" onclick="console.log('Clicked doc ${result.document.id}')">
+                <div class="card-header">
+                    <a href="#" class="card-title">${escapeHtml(docTitle)}</a>
+                    <span class="relevance-score ${scoreClass}">${relevanceLabel}</span>
                 </div>
-                <div class="result-content">
-                    <div class="result-header">
-                        <div class="result-title">Document ${result.document.id}</div>
-                        <div class="result-relevance ${scoreClass}">
-                            ${result.score > 5 ? 'Highly Relevant' : result.score > 2 ? 'Relevant' : 'Possibly Relevant'}
-                        </div>
-                    </div>
-                    <div class="result-text">${content}</div>
-                    <div class="result-footer">
-                        <span class="result-meta">Doc ID: ${result.document.id}</span>
-                        <span class="result-meta">Score: ${result.score.toFixed(4)}</span>
-                        ${result.document.fields && result.document.fields.title ?
-                            `<span class="result-meta">${escapeHtml(result.document.fields.title)}</span>` : ''}
-                    </div>
+                <div class="card-meta">
+                    <span class="rank-badge">#${index + 1}</span>
+                    <span>ID: ${result.document.id}</span>
+                    <span>•</span>
+                    <span>Score: ${result.score.toFixed(4)}</span>
                 </div>
+                <div class="card-snippet">${content}</div>
             </div>
         `;
     });
-    html += '</div>';
 
     dom.results.innerHTML = html;
 }
@@ -217,72 +252,46 @@ function displayResults(results, query, expandedTerms) {
 function highlightQuery(text, query, expandedTerms) {
     if (!query) return escapeHtml(text);
     expandedTerms = expandedTerms || {};
-
-    const originalTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-    const highlightSet = new Set();
-
-    for (const term of originalTerms) {
-        highlightSet.add(term);
-        if (expandedTerms[term]) {
-            highlightSet.add(expandedTerms[term].toLowerCase());
-        }
+    
+    // Naive highlighting for client-side fallback
+    const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    
+    // Add extended terms
+     for (const corrected of Object.values(expandedTerms)) {
+        terms.push(corrected.toLowerCase());
     }
 
-    for (const corrected of Object.values(expandedTerms)) {
-        highlightSet.add(corrected.toLowerCase());
-    }
+    let escapedText = escapeHtml(text);
+    
+    if (terms.length === 0) return escapedText;
 
-    let highlighted = escapeHtml(text);
-    for (const term of highlightSet) {
-        const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`(${escaped})`, 'gi');
-        highlighted = highlighted.replace(regex, '<mark>$1</mark>');
-    }
-
-    return highlighted;
+    const pattern = new RegExp(`(${terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+    return escapedText.replace(pattern, '<mark>$1</mark>');
 }
 
 function displayStats(data) {
-    const heapIcon = data.use_top_k_heap ? 'Heap' : 'Sort';
-    const algorithmIcon = data.algorithm === 'bm25' ? 'BM25' : 'TF-IDF';
-    const speedClass = data.query_time_ms < 10 ? 'super-fast' : data.query_time_ms < 50 ? 'fast' : 'normal';
+    const heapText = data.use_top_k_heap ? 'Heap Optimization' : 'Standard Sort';
+    const algorithmText = data.algorithm.toUpperCase();
 
     dom.stats.innerHTML = `
-        <div class="stats-content">
-            <div class="stat-item stat-results">
-                <div class="stat-icon-container">
-                    <div class="stat-icon">📊</div>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-value">${data.total_results}</div>
-                    <div class="stat-label">Results Found</div>
-                </div>
+        <div class="stats-header">
+             <div class="stats-query-info">
+                <span class="query-label">Results for</span>
+                <span class="query-text">"${escapeHtml(data.original_query)}"</span>
             </div>
-            <div class="stat-item stat-time ${speedClass}">
-                <div class="stat-icon-container">
-                    <div class="stat-icon">⚡</div>
+            <div class="stats-container">
+                <div class="stat-pill">
+                    <span>found</span>
+                    <span class="stat-value-bold">${data.total_results}</span>
+                    <span>results</span>
                 </div>
-                <div class="stat-info">
-                    <div class="stat-value">${data.query_time_ms.toFixed(2)}ms</div>
-                    <div class="stat-label">Query Time</div>
+                <div class="stat-pill">
+                    <span>in</span>
+                    <span class="stat-value-bold">${data.query_time_ms.toFixed(2)}ms</span>
                 </div>
-            </div>
-            <div class="stat-item stat-algorithm">
-                <div class="stat-icon-container">
-                    <div class="stat-icon">🎯</div>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-value">${algorithmIcon}</div>
-                    <div class="stat-label">Ranking</div>
-                </div>
-            </div>
-            <div class="stat-item stat-method">
-                <div class="stat-icon-container">
-                    <div class="stat-icon">🚀</div>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-value">${heapIcon}</div>
-                    <div class="stat-label">Retrieval</div>
+                 <div class="stat-pill">
+                    <span>using</span>
+                    <span class="stat-value-bold">${algorithmText}</span>
                 </div>
             </div>
         </div>
@@ -290,77 +299,207 @@ function displayStats(data) {
 }
 
 function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    if (!text) return '';
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+/* ── View Switching ─────────────────────────────────── */
+
+function switchView(view) {
+    currentView = view;
+
+    // Update nav pills using data-view attribute
+    dom.navPills.forEach(pill => {
+        const pillView = pill.getAttribute('data-view') || pill.textContent.trim().toLowerCase();
+        pill.classList.toggle('active', pillView === view);
+    });
+
+    // Toggle view panels
+    if (dom.searchView) dom.searchView.classList.toggle('active', view === 'search');
+    if (dom.indexView) dom.indexView.classList.toggle('active', view === 'index');
+
+    // When switching to index, load stats
+    if (view === 'index') {
+        loadIndexStats();
+        loadCacheStats();
+        // Auto-refresh while on index view
+        if (statsInterval) clearInterval(statsInterval);
+        statsInterval = setInterval(() => {
+            if (currentView === 'index') {
+                loadIndexStats();
+                loadCacheStats();
+            }
+        }, CONFIG.statsRefreshMs);
+    } else {
+        if (statsInterval) { clearInterval(statsInterval); statsInterval = null; }
+    }
+}
+
+/* ── Index View: Stats ──────────────────────────────── */
+
+async function loadIndexStats() {
+    try {
+        const resp = await fetchWithTimeout(`${CONFIG.apiBase}/stats`, CONFIG.requestTimeoutMs);
+        const data = await resp.json();
+        animateValue(dom.statTotalDocs, data.total_documents);
+        animateValue(dom.statTotalTerms, data.total_terms);
+        dom.statAvgLen.textContent = typeof data.avg_doc_length === 'number'
+            ? data.avg_doc_length.toFixed(1)
+            : '—';
+    } catch (e) {
+        console.error('Failed to load index stats', e);
+    }
+}
+
+async function loadCacheStats() {
+    try {
+        const resp = await fetchWithTimeout(`${CONFIG.apiBase}/cache/stats`, CONFIG.requestTimeoutMs);
+        const data = await resp.json();
+
+        dom.cacheHits.textContent = formatNumber(data.hit_count);
+        dom.cacheMisses.textContent = formatNumber(data.miss_count);
+        dom.cacheEvictions.textContent = formatNumber(data.eviction_count);
+        dom.cacheSize.textContent = `${data.current_size} / ${data.max_size}`;
+
+        const rate = typeof data.hit_rate === 'number' ? (data.hit_rate * 100).toFixed(1) + '%' : '—';
+        dom.statCacheRate.textContent = rate;
+    } catch (e) {
+        console.error('Failed to load cache stats', e);
+    }
+}
+
+function animateValue(el, target) {
+    if (!el) return;
+    const current = parseInt(el.textContent, 10);
+    if (isNaN(current) || current === target) {
+        el.textContent = formatNumber(target);
+        return;
+    }
+    const duration = 400;
+    const start = performance.now();
+    const from = current;
+    function tick(now) {
+        const p = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        el.textContent = formatNumber(Math.round(from + (target - from) * ease));
+        if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+}
+
+function formatNumber(n) {
+    if (typeof n !== 'number' || isNaN(n)) return '—';
+    return n.toLocaleString();
+}
+
+/* ── Index View: Actions ────────────────────────────── */
+
+async function addDocument() {
+    const id = parseInt(dom.docIdInput.value, 10);
+    const content = dom.docContentInput.value.trim();
+
+    if (isNaN(id) || id < 1) { showToast('Enter a valid document ID.', 'warning'); return; }
+    if (!content) { showToast('Enter document content.', 'warning'); return; }
+
+    dom.addDocBtn.disabled = true;
+    dom.addDocBtn.textContent = 'Indexing...';
+
+    try {
+        const resp = await fetchWithTimeout(`${CONFIG.apiBase}/index`, CONFIG.requestTimeoutMs, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, content })
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            showToast(`Document ${data.doc_id} indexed successfully.`, 'success');
+            dom.docIdInput.value = '';
+            dom.docContentInput.value = '';
+            loadIndexStats();
+        } else {
+            showToast(data.error || 'Failed to index document.', 'error');
+        }
+    } catch (e) {
+        showToast('Server error while indexing.', 'error');
+    } finally {
+        dom.addDocBtn.disabled = false;
+        dom.addDocBtn.textContent = 'Add to Index';
+    }
+}
+
+async function deleteDocument() {
+    const id = parseInt(dom.deleteDocIdInput.value, 10);
+    if (isNaN(id) || id < 1) { showToast('Enter a valid document ID.', 'warning'); return; }
+
+    dom.deleteDocBtn.disabled = true;
+    dom.deleteDocBtn.textContent = 'Deleting...';
+
+    try {
+        const resp = await fetchWithTimeout(`${CONFIG.apiBase}/delete/${id}`, CONFIG.requestTimeoutMs, {
+            method: 'DELETE'
+        });
+        const data = await resp.json();
+
+        if (data.success) {
+            showToast(`Document ${id} deleted.`, 'success');
+            dom.deleteDocIdInput.value = '';
+            loadIndexStats();
+        } else {
+            showToast(`Document ${id} not found.`, 'warning');
+        }
+    } catch (e) {
+        showToast('Server error while deleting.', 'error');
+    } finally {
+        dom.deleteDocBtn.disabled = false;
+        dom.deleteDocBtn.textContent = 'Delete';
+    }
+}
+
+async function clearCache() {
+    dom.clearCacheBtn.disabled = true;
+    try {
+        const resp = await fetchWithTimeout(`${CONFIG.apiBase}/cache`, CONFIG.requestTimeoutMs, {
+            method: 'DELETE'
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showToast('Cache cleared.', 'success');
+            loadCacheStats();
+        }
+    } catch (e) {
+        showToast('Failed to clear cache.', 'error');
+    } finally {
+        dom.clearCacheBtn.disabled = false;
+    }
 }
 
 function showToast(message, type = 'info') {
+    // Remove existing toast if any
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
     document.body.appendChild(toast);
 
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 10);
+    // Trigger reflow
+    toast.offsetHeight;
+
+    toast.classList.add('show');
 
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => {
-            document.body.removeChild(toast);
+            if (toast.parentNode) toast.parentNode.removeChild(toast);
         }, 300);
     }, 3000);
-}
-
-function initBackgroundAnimation() {
-    const nodeCount = 18;
-    const lineCount = 14;
-    const nodes = [];
-
-    for (let i = 0; i < nodeCount; i++) {
-        const node = document.createElement('div');
-        node.className = 'network-node';
-
-        const startX = Math.random() * window.innerWidth;
-        const startY = Math.random() * window.innerHeight;
-        const moveX = (Math.random() - 0.5) * 120;
-        const moveY = (Math.random() - 0.5) * 120;
-        const delay = Math.random() * 20;
-        const duration = 15 + Math.random() * 10;
-
-        node.style.left = startX + 'px';
-        node.style.top = startY + 'px';
-        node.style.setProperty('--tx', moveX + 'px');
-        node.style.setProperty('--ty', moveY + 'px');
-        node.style.animationDelay = delay + 's';
-        node.style.animationDuration = duration + 's';
-
-        nodes.push({ element: node, x: startX, y: startY });
-        document.body.appendChild(node);
-    }
-
-    for (let i = 0; i < lineCount; i++) {
-        const line = document.createElement('div');
-        line.className = 'network-line';
-
-        const node1 = nodes[Math.floor(Math.random() * nodes.length)];
-        const node2 = nodes[Math.floor(Math.random() * nodes.length)];
-
-        const dx = node2.x - node1.x;
-        const dy = node2.y - node1.y;
-        const length = Math.sqrt(dx * dx + dy * dy);
-        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-        const delay = Math.random() * 4;
-
-        line.style.left = node1.x + 'px';
-        line.style.top = node1.y + 'px';
-        line.style.width = length + 'px';
-        line.style.transform = `rotate(${angle}deg)`;
-        line.style.animationDelay = delay + 's';
-
-        document.body.appendChild(line);
-    }
 }
 
 if (document.readyState === 'loading') {
