@@ -4,6 +4,7 @@
 #include "snippet_extractor.hpp"
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -29,6 +30,13 @@ struct SearchOptions {
 
     // Cache control
     bool use_cache = true;  // Enable query result caching
+
+    // Pagination: offset-based
+    size_t offset = 0;  // Skip first N results (default: 0)
+
+    // Pagination: cursor-based (search-after)
+    std::optional<double> search_after_score;       // Score of last result on previous page
+    std::optional<uint64_t> search_after_id;        // Doc ID of last result on previous page
 
     // Deprecated: Use ranker_name instead
     enum RankingAlgorithm { TF_IDF, BM25 };
@@ -74,6 +82,24 @@ struct CacheStatistics {
     size_t current_size = 0;
     size_t max_size = 0;
     double hit_rate = 0.0;
+};
+
+/**
+ * Pagination metadata returned alongside search results
+ */
+struct PaginationInfo {
+    size_t total_hits = 0;      // Total number of matching documents
+    size_t offset = 0;          // Offset used for this page
+    size_t page_size = 0;       // Number of results in this page
+    bool has_next_page = false;  // Whether more results are available
+};
+
+/**
+ * Paginated search results — wraps results with pagination metadata
+ */
+struct PaginatedSearchResults {
+    std::vector<SearchResult> results;
+    PaginationInfo pagination;
 };
 
 } // namespace rtrv_search_engine

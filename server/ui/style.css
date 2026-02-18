@@ -1050,3 +1050,51 @@ body {
 
     .search-tips { display: none; }
 }
+
+/* ── Pagination Controls ─────────────────────────────── */
+
+.pagination-controls {
+    padding: 12px 28px 20px;
+}
+
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 12px 0;
+}
+
+.pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pagination-btn:hover:not(.disabled) {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.pagination-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.pagination-info {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 500;
+    user-select: none;
+}

@@ -13,6 +13,21 @@ const dom = {};
 let currentView = 'search';
 let statsInterval = null;
 
+// Pagination state
+let paginationState = {
+    query: '',
+    algorithm: 'bm25',
+    maxResults: CONFIG.defaultMaxResults,
+    useTopKHeap: true,
+    offset: 0,
+    totalHits: 0,
+    hasNextPage: false,
+    // Cursor-based: store last result's (score, id)
+    lastScore: null,
+    lastId: null,
+    useCursor: false  // toggle between offset and cursor mode
+};
+
 function cacheDom() {
     // Search view
     dom.searchInput = document.getElementById('searchInput');
@@ -24,6 +39,7 @@ function cacheDom() {
     dom.advancedOptions = document.getElementById('advancedOptions');
     dom.useTopKHeap = document.getElementById('useTopKHeap');
     dom.maxResults = document.getElementById('maxResults');
+    dom.paginationControls = document.getElementById('paginationControls');
 
     // Views
     dom.searchView = document.getElementById('searchView');
@@ -87,6 +103,11 @@ function attachEventListeners() {
 
 function clearSearch() {
     dom.searchInput.value = '';
+    paginationState.offset = 0;
+    paginationState.totalHits = 0;
+    paginationState.hasNextPage = false;
+    paginationState.lastScore = null;
+    paginationState.lastId = null;
     dom.results.innerHTML = `
         <div class="empty-state">
             <div class="empty-icon">
@@ -97,13 +118,28 @@ function clearSearch() {
         </div>
     `;
     dom.stats.innerHTML = '';
+    if (dom.paginationControls) dom.paginationControls.innerHTML = '';
 }
 
-async function performSearch() {
+async function performSearch(paginationAction) {
     const rawQuery = dom.searchInput.value.trim();
     const algorithm = getSelectedAlgorithm();
     const maxResults = parsePositiveInt(dom.maxResults.value, CONFIG.defaultMaxResults);
     const useTopKHeap = dom.useTopKHeap ? dom.useTopKHeap.checked : true;
+
+    // Determine offset based on pagination action
+    let offset = 0;
+    let searchAfterScore = null;
+    let searchAfterId = null;
+
+    if (paginationAction === 'next') {
+        offset = paginationState.offset + paginationState.maxResults;
+    } else if (paginationAction === 'prev') {
+        offset = Math.max(0, paginationState.offset - paginationState.maxResults);
+    } else {
+        // New search — reset pagination
+        offset = 0;
+    }
 
     setSearchLoading(true);
     const startTime = performance.now();
@@ -113,11 +149,18 @@ async function performSearch() {
 
         if (!rawQuery) {
             // Empty query => list documents from /documents endpoint
-            const url = `${CONFIG.apiBase}/documents?offset=0&limit=${maxResults}`;
+            const url = `${CONFIG.apiBase}/documents?offset=${offset}&limit=${maxResults}`;
             const resp = await fetchWithTimeout(url, CONFIG.requestTimeoutMs);
             data = await resp.json();
+            // Simulate pagination info for document listing
+            data.pagination = {
+                total_hits: data.total_documents || data.total_results || 0,
+                offset: offset,
+                page_size: (data.results || []).length,
+                has_next_page: (offset + maxResults) < (data.total_documents || 0)
+            };
         } else {
-            data = await fetchSearchResults(rawQuery, algorithm, maxResults, useTopKHeap);
+            data = await fetchSearchResults(rawQuery, algorithm, maxResults, useTopKHeap, offset, searchAfterScore, searchAfterId);
         }
 
         const endTime = performance.now();
@@ -126,11 +169,32 @@ async function performSearch() {
         data.algorithm = algorithm;
         data.original_query = rawQuery || 'All documents';
 
+        // Update pagination state
+        const pagination = data.pagination || {};
+        paginationState.query = rawQuery;
+        paginationState.algorithm = algorithm;
+        paginationState.maxResults = maxResults;
+        paginationState.useTopKHeap = useTopKHeap;
+        paginationState.offset = pagination.offset || offset;
+        paginationState.totalHits = pagination.total_hits || data.total_results || 0;
+        paginationState.hasNextPage = pagination.has_next_page || false;
+
+        // Store last result for cursor-based pagination
+        if (data.results && data.results.length > 0) {
+            const last = data.results[data.results.length - 1];
+            paginationState.lastScore = last.score;
+            paginationState.lastId = last.document.id;
+        } else {
+            paginationState.lastScore = null;
+            paginationState.lastId = null;
+        }
+
         const expanded = data.expanded_terms ||
             (data.results && data.results.length > 0 && data.results[0].expanded_terms) || {};
 
         displayResults(data.results, rawQuery, expanded);
         displayStats(data);
+        displayPagination();
 
         if (rawQuery && expanded && Object.keys(expanded).length > 0) {
             const corrections = Object.entries(expanded)
@@ -149,7 +213,7 @@ async function performSearch() {
     }
 }
 
-async function fetchSearchResults(query, algorithm, maxResults, useTopKHeap) {
+async function fetchSearchResults(query, algorithm, maxResults, useTopKHeap, offset, searchAfterScore, searchAfterId) {
     const params = new URLSearchParams({
         q: query,
         algorithm: algorithm,
@@ -163,6 +227,17 @@ async function fetchSearchResults(query, algorithm, maxResults, useTopKHeap) {
 
     if (CONFIG.enableFuzzy) {
         params.set('fuzzy', 'true');
+    }
+
+    // Pagination params
+    if (typeof offset === 'number' && offset > 0) {
+        params.set('offset', String(offset));
+    }
+    if (searchAfterScore !== null && searchAfterScore !== undefined) {
+        params.set('search_after_score', String(searchAfterScore));
+    }
+    if (searchAfterId !== null && searchAfterId !== undefined) {
+        params.set('search_after_id', String(searchAfterId));
     }
 
     const url = `${CONFIG.apiBase}/search?${params.toString()}`;
@@ -273,6 +348,13 @@ function displayStats(data) {
     const heapText = data.use_top_k_heap ? 'Heap Optimization' : 'Standard Sort';
     const algorithmText = data.algorithm.toUpperCase();
 
+    const pagination = data.pagination || {};
+    const totalHits = pagination.total_hits || data.total_results || 0;
+    const offset = pagination.offset || 0;
+    const pageSize = pagination.page_size || data.total_results || 0;
+    const rangeStart = totalHits > 0 ? offset + 1 : 0;
+    const rangeEnd = offset + pageSize;
+
     dom.stats.innerHTML = `
         <div class="stats-header">
              <div class="stats-query-info">
@@ -281,8 +363,10 @@ function displayStats(data) {
             </div>
             <div class="stats-container">
                 <div class="stat-pill">
-                    <span>found</span>
-                    <span class="stat-value-bold">${data.total_results}</span>
+                    <span>showing</span>
+                    <span class="stat-value-bold">${rangeStart}–${rangeEnd}</span>
+                    <span>of</span>
+                    <span class="stat-value-bold">${totalHits}</span>
                     <span>results</span>
                 </div>
                 <div class="stat-pill">
@@ -296,6 +380,45 @@ function displayStats(data) {
             </div>
         </div>
     `;
+}
+
+function displayPagination() {
+    if (!dom.paginationControls) return;
+
+    const { offset, maxResults, totalHits, hasNextPage } = paginationState;
+    const hasPrev = offset > 0;
+    const currentPage = Math.floor(offset / maxResults) + 1;
+    const totalPages = Math.max(1, Math.ceil(totalHits / maxResults));
+
+    if (totalHits <= maxResults && offset === 0) {
+        // Single page — no need for pagination controls
+        dom.paginationControls.innerHTML = '';
+        return;
+    }
+
+    dom.paginationControls.innerHTML = `
+        <div class="pagination-bar">
+            <button class="pagination-btn${hasPrev ? '' : ' disabled'}" id="prevPageBtn" ${hasPrev ? '' : 'disabled'}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Previous
+            </button>
+            <span class="pagination-info">Page ${currentPage} of ${totalPages}</span>
+            <button class="pagination-btn${hasNextPage ? '' : ' disabled'}" id="nextPageBtn" ${hasNextPage ? '' : 'disabled'}>
+                Next
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>
+    `;
+
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+
+    if (prevBtn && hasPrev) {
+        prevBtn.addEventListener('click', () => performSearch('prev'));
+    }
+    if (nextBtn && hasNextPage) {
+        nextBtn.addEventListener('click', () => performSearch('next'));
+    }
 }
 
 function escapeHtml(text) {
