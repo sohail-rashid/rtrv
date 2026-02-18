@@ -2,7 +2,7 @@
 #include "snippet_extractor.hpp"
 #include "search_engine.hpp"
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 // =============================================================================
 // SnippetExtractor unit tests

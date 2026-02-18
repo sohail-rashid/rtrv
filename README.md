@@ -493,7 +493,7 @@ engine.loadSnapshot("index.db");
 ```bash
 # Clone repository
 git clone <repository-url>
-cd searchDB
+cd rtrv
 
 # Create build directory
 mkdir build && cd build
@@ -537,7 +537,7 @@ cmake -DBUILD_DROGON_SERVER=ON ..
 ### Project Structure
 
 ```
-searchDB/
+rtrv/
 ├── CMakeLists.txt              # Main build configuration
 ├── README.md                   # This file
 ├── .gitignore                  # Git ignore rules
@@ -1099,7 +1099,7 @@ Complex:        (title:search OR content:engine) AND algorithm
 
 ```cpp
 #include "search_engine.hpp"
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 int main() {
     // Create search engine
@@ -1132,7 +1132,7 @@ int main() {
 ```cpp
 #include "search_engine.hpp"
 #include "tokenizer.hpp"
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 int main() {
     // Create search engine with SIMD tokenization

@@ -6,7 +6,7 @@
 #include <vector>
 #include <unordered_map>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 class DocumentLoader {
 public:
@@ -24,4 +24,4 @@ private:
     uint32_t next_doc_id_ = 1;  // Auto-incrementing document ID (uint32_t for 4B docs)
 };
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

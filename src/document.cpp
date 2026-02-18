@@ -1,7 +1,7 @@
 #include "document.hpp"
 #include <sstream>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 Document::Document(uint32_t id, const std::unordered_map<std::string, std::string>& fields)
     : id(id), fields(fields), term_count(0) {
@@ -30,4 +30,4 @@ std::string Document::getAllText() const {
     return oss.str();
 }
 
-} // namespace search_engine 
+} // namespace rtrv_search_engine 

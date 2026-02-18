@@ -3,7 +3,7 @@
 #include <cmath>
 #include <limits>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 FuzzySearch::FuzzySearch() = default;
 FuzzySearch::~FuzzySearch() = default;
@@ -264,4 +264,4 @@ uint32_t FuzzySearch::autoMaxEditDistance(size_t term_length) {
     }
 }
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

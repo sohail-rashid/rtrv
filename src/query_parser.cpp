@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <stdexcept>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 // ============================================================================
 // QueryNode implementations

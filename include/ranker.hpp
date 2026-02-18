@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <memory>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Statistics needed for ranking

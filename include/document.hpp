@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Represents a searchable document with metadata

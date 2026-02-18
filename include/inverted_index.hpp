@@ -7,7 +7,7 @@
 #include <shared_mutex>
 #include <unordered_set>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Represents a posting entry in the inverted index

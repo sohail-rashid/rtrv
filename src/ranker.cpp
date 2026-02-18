@@ -4,7 +4,7 @@
 #include <cctype>
 #include <stdexcept>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 // ============================================================================
 // TF-IDF Ranker Implementation

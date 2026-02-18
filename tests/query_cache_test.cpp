@@ -4,7 +4,7 @@
 #include <chrono>
 #include <thread>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 static std::vector<SearchResult> makeResults(uint32_t doc_id, const std::string& content) {
     SearchResult result;

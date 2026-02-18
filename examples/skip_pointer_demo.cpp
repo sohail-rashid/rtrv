@@ -9,7 +9,7 @@
 #include <chrono>
 #include <iomanip>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 using namespace std::chrono;
 
 void printPostingList(const PostingList& list, const std::string& term) {

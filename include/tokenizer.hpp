@@ -5,7 +5,7 @@
 #include <unordered_set>
 #include <cstdint>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Available stemmer types

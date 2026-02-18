@@ -3,7 +3,7 @@
 #include <fstream>
 #include <filesystem>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 // Test fixture for document loader tests
 class DocumentLoaderTest : public ::testing::Test {

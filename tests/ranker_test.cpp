@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "ranker.hpp"
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 class RankerTest : public ::testing::Test {
 protected:

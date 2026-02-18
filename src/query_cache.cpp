@@ -1,6 +1,6 @@
 #include "query_cache.hpp"
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 QueryCache::QueryCache(size_t max_entries, std::chrono::milliseconds ttl)
     : max_entries_(max_entries),
@@ -136,4 +136,4 @@ void QueryCache::eraseEntry(
     }
 }
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

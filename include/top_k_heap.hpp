@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cstdint>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Scored document for top-K heap
@@ -171,4 +171,4 @@ public:
     }
 };
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

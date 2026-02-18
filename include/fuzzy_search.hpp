@@ -6,7 +6,7 @@
 #include <unordered_set>
 #include <cstdint>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Result of a fuzzy term match
@@ -130,4 +130,4 @@ private:
     static constexpr size_t NGRAM_SIZE = 2;
 };
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

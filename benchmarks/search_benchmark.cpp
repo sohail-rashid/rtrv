@@ -3,7 +3,7 @@
 #include <vector>
 #include <random>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 // Helper function to generate synthetic documents
 std::vector<std::pair<std::string, std::string>> generateSyntheticDocuments(size_t count) {

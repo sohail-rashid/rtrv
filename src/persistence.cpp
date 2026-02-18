@@ -2,7 +2,7 @@
 #include "search_engine.hpp"
 #include <fstream>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 bool Persistence::save(const SearchEngine& engine, const std::string& filepath) {
     std::ofstream file(filepath, std::ios::binary);

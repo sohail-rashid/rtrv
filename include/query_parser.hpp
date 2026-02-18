@@ -5,7 +5,7 @@
 #include <memory>
 #include <sstream>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Abstract base class for all query nodes

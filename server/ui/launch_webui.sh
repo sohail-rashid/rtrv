@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Search Engine Web UI Launcher
+# Rtrv Web UI Launcher
 # This script starts the Drogon REST server (serves the UI and API)
 
 set -e
@@ -74,7 +74,7 @@ fi
 # Print startup banner
 echo -e "${GREEN}"
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║       Search Engine Web UI Launcher                      ║"
+echo "║       Rtrv Web UI Launcher                              ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 

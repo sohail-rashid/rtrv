@@ -15,7 +15,7 @@
 #include <memory>
 #include <shared_mutex>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Main search engine API with plugin architecture for rankers

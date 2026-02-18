@@ -3,7 +3,7 @@
 #include <thread>
 #include <vector>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 class InvertedIndexTest : public ::testing::Test {
 protected:

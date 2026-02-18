@@ -4,7 +4,7 @@
 #include <vector>
 #include <sstream>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 // Helper function to load Wikipedia sample data
 std::vector<std::pair<std::string, std::string>> loadWikipediaSample() {
