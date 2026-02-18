@@ -2,6 +2,7 @@
 #include "search_engine.hpp"
 #include <cstdio>
 #include <fstream>
+#include <set>
 
 using namespace rtrv_search_engine;
 
@@ -576,4 +577,181 @@ TEST_F(SearchEngineTest, TopKHeapExactlyK) {
     auto results = engine.search("search term", opts);
     
     EXPECT_EQ(results.size(), 5);
+}
+
+// ============================================================================
+// Pagination Tests
+// ============================================================================
+
+TEST_F(SearchEngineTest, PaginatedSearchBasic) {
+    // Index 20 documents
+    for (int i = 0; i < 20; ++i) {
+        Document doc{0, {{"content", "common search term document " + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+
+    SearchOptions opts;
+    opts.max_results = 5;
+    opts.offset = 0;
+    auto page1 = engine.searchPaginated("common search", opts);
+
+    EXPECT_EQ(page1.results.size(), 5);
+    EXPECT_EQ(page1.pagination.total_hits, 20);
+    EXPECT_EQ(page1.pagination.offset, 0);
+    EXPECT_EQ(page1.pagination.page_size, 5);
+    EXPECT_TRUE(page1.pagination.has_next_page);
+}
+
+TEST_F(SearchEngineTest, PaginatedSearchOffsetPages) {
+    // Index 15 documents
+    for (int i = 0; i < 15; ++i) {
+        Document doc{0, {{"content", "paging test document " + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+
+    // Page 1: offset=0, size=5
+    SearchOptions opts;
+    opts.max_results = 5;
+    opts.offset = 0;
+    auto page1 = engine.searchPaginated("paging test", opts);
+
+    EXPECT_EQ(page1.results.size(), 5);
+    EXPECT_EQ(page1.pagination.total_hits, 15);
+    EXPECT_TRUE(page1.pagination.has_next_page);
+
+    // Page 2: offset=5, size=5
+    opts.offset = 5;
+    auto page2 = engine.searchPaginated("paging test", opts);
+
+    EXPECT_EQ(page2.results.size(), 5);
+    EXPECT_EQ(page2.pagination.offset, 5);
+    EXPECT_TRUE(page2.pagination.has_next_page);
+
+    // Page 3: offset=10, size=5
+    opts.offset = 10;
+    auto page3 = engine.searchPaginated("paging test", opts);
+
+    EXPECT_EQ(page3.results.size(), 5);
+    EXPECT_EQ(page3.pagination.offset, 10);
+    EXPECT_FALSE(page3.pagination.has_next_page);
+
+    // Verify no overlap between pages
+    std::set<uint32_t> all_ids;
+    for (const auto& r : page1.results) all_ids.insert(r.document.id);
+    for (const auto& r : page2.results) all_ids.insert(r.document.id);
+    for (const auto& r : page3.results) all_ids.insert(r.document.id);
+    EXPECT_EQ(all_ids.size(), 15);
+}
+
+TEST_F(SearchEngineTest, PaginatedSearchBeyondResults) {
+    // Index 5 documents
+    for (int i = 0; i < 5; ++i) {
+        Document doc{0, {{"content", "beyond test doc " + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+
+    // Offset past all results
+    SearchOptions opts;
+    opts.max_results = 5;
+    opts.offset = 100;
+    auto page = engine.searchPaginated("beyond test", opts);
+
+    EXPECT_TRUE(page.results.empty());
+    EXPECT_EQ(page.pagination.total_hits, 5);
+    EXPECT_FALSE(page.pagination.has_next_page);
+}
+
+TEST_F(SearchEngineTest, PaginatedSearchPartialLastPage) {
+    // Index 7 documents
+    for (int i = 0; i < 7; ++i) {
+        Document doc{0, {{"content", "partial page document " + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+
+    // Request page size 5, offset 5 → should get 2 results
+    SearchOptions opts;
+    opts.max_results = 5;
+    opts.offset = 5;
+    auto page = engine.searchPaginated("partial page", opts);
+
+    EXPECT_EQ(page.results.size(), 2);
+    EXPECT_EQ(page.pagination.page_size, 2);
+    EXPECT_FALSE(page.pagination.has_next_page);
+    EXPECT_EQ(page.pagination.total_hits, 7);
+}
+
+TEST_F(SearchEngineTest, PaginatedSearchCursorBased) {
+    // Index 10 documents
+    for (int i = 0; i < 10; ++i) {
+        Document doc{0, {{"content", "cursor test document " + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+
+    // Get first page
+    SearchOptions opts;
+    opts.max_results = 3;
+    auto page1 = engine.searchPaginated("cursor test", opts);
+
+    ASSERT_EQ(page1.results.size(), 3);
+    EXPECT_TRUE(page1.pagination.has_next_page);
+
+    // Use cursor from last result of page 1 to get page 2
+    SearchOptions opts2;
+    opts2.max_results = 3;
+    opts2.search_after_score = page1.results.back().score;
+    opts2.search_after_id = page1.results.back().document.id;
+    auto page2 = engine.searchPaginated("cursor test", opts2);
+
+    ASSERT_FALSE(page2.results.empty());
+    EXPECT_LE(page2.results.size(), 3);
+
+    // Verify page2 results come after page1 results (lower or equal scores)
+    double last_page1_score = page1.results.back().score;
+    for (const auto& r : page2.results) {
+        EXPECT_LE(r.score, last_page1_score);
+    }
+
+    // Verify no overlap between pages
+    std::set<uint32_t> page1_ids, page2_ids;
+    for (const auto& r : page1.results) page1_ids.insert(r.document.id);
+    for (const auto& r : page2.results) page2_ids.insert(r.document.id);
+    for (auto id : page2_ids) {
+        EXPECT_EQ(page1_ids.count(id), 0) << "Document " << id << " appears in both pages";
+    }
+}
+
+TEST_F(SearchEngineTest, PaginatedSearchEmptyQuery) {
+    Document doc{0, {{"content", "test document"}}};
+    engine.indexDocument(doc);
+
+    auto page = engine.searchPaginated("", SearchOptions{});
+    EXPECT_TRUE(page.results.empty());
+    EXPECT_EQ(page.pagination.total_hits, 0);
+    EXPECT_FALSE(page.pagination.has_next_page);
+}
+
+TEST_F(SearchEngineTest, PaginatedSearchNoMatches) {
+    Document doc{0, {{"content", "hello world"}}};
+    engine.indexDocument(doc);
+
+    auto page = engine.searchPaginated("nonexistent", SearchOptions{});
+    EXPECT_TRUE(page.results.empty());
+    EXPECT_EQ(page.pagination.total_hits, 0);
+    EXPECT_FALSE(page.pagination.has_next_page);
+}
+
+TEST_F(SearchEngineTest, PaginatedSearchSinglePage) {
+    // Index 3 documents, request page of 10
+    for (int i = 0; i < 3; ++i) {
+        Document doc{0, {{"content", "single page test " + std::to_string(i)}}};
+        engine.indexDocument(doc);
+    }
+
+    SearchOptions opts;
+    opts.max_results = 10;
+    auto page = engine.searchPaginated("single page", opts);
+
+    EXPECT_EQ(page.results.size(), 3);
+    EXPECT_EQ(page.pagination.total_hits, 3);
+    EXPECT_FALSE(page.pagination.has_next_page);
 }

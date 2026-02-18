@@ -3,6 +3,7 @@
 #include "top_k_heap.hpp"
 #include "snippet_extractor.hpp"
 #include <cctype>
+#include <limits>
 
 namespace {
 
@@ -48,6 +49,13 @@ size_t hashSearchOptions(const rtrv_search_engine::SearchOptions& options) {
     seed = hashCombine(seed, std::hash<std::string>{}(options.snippet_options.highlight_close));
     seed = hashCombine(seed, std::hash<bool>{}(options.fuzzy_enabled));
     seed = hashCombine(seed, std::hash<uint32_t>{}(options.max_edit_distance));
+    seed = hashCombine(seed, std::hash<size_t>{}(options.offset));
+    if (options.search_after_score.has_value()) {
+        seed = hashCombine(seed, std::hash<double>{}(options.search_after_score.value()));
+    }
+    if (options.search_after_id.has_value()) {
+        seed = hashCombine(seed, std::hash<uint64_t>{}(options.search_after_id.value()));
+    }
     return seed;
 }
 
@@ -386,6 +394,98 @@ std::vector<SearchResult> SearchEngine::search(const std::string& query,
     }
 
     return results;
+}
+
+PaginatedSearchResults SearchEngine::searchPaginated(const std::string& query,
+                                                      const SearchOptions& options) {
+    PaginatedSearchResults paginated;
+
+    // For paginated search we need ALL matching results scored so we can
+    // compute total_hits accurately and apply offset / cursor.
+    // Build a modified options that fetches everything, then slice.
+    SearchOptions internal_opts = options;
+
+    // Temporarily disable offset, cursor, and limit so the core search
+    // returns all scored candidates.
+    const size_t requested_offset = options.offset;
+    const size_t requested_page_size = options.max_results;
+    const auto search_after_score = options.search_after_score;
+    const auto search_after_id = options.search_after_id;
+
+    // Ask for a large number so we get all candidates.
+    internal_opts.max_results = std::numeric_limits<size_t>::max();
+    internal_opts.offset = 0;
+    internal_opts.search_after_score = std::nullopt;
+    internal_opts.search_after_id = std::nullopt;
+    // Disable top-k heap so we get full sorted list for pagination
+    internal_opts.use_top_k_heap = false;
+
+    auto all_results = search(query, internal_opts);
+
+    // Ensure deterministic order: sort by score descending, then doc_id ascending
+    std::sort(all_results.begin(), all_results.end(),
+              [](const SearchResult& a, const SearchResult& b) {
+                  if (a.score != b.score) return a.score > b.score;
+                  return a.document.id < b.document.id;
+              });
+
+    const size_t total_hits = all_results.size();
+    paginated.pagination.total_hits = total_hits;
+    paginated.pagination.page_size = requested_page_size;
+
+    // Cursor-based pagination (search_after)
+    if (search_after_score.has_value() && search_after_id.has_value()) {
+        double cursor_score = search_after_score.value();
+        uint64_t cursor_id = search_after_id.value();
+
+        // Find the position after the cursor in the sorted results.
+        // Results are sorted descending by score, then by doc_id ascending
+        // for tie-breaking.
+        size_t start_pos = 0;
+        for (size_t i = 0; i < all_results.size(); ++i) {
+            if (all_results[i].score < cursor_score ||
+                (all_results[i].score == cursor_score &&
+                 all_results[i].document.id >= cursor_id)) {
+                // We've passed the cursor position — but we need to find
+                // the exact cursor entry and start AFTER it.
+                if (all_results[i].score == cursor_score &&
+                    all_results[i].document.id == cursor_id) {
+                    start_pos = i + 1;
+                } else {
+                    start_pos = i;
+                }
+                break;
+            }
+            // If this entry has higher score than cursor, keep going
+            start_pos = i + 1;
+        }
+
+        paginated.pagination.offset = start_pos;
+
+        size_t end_pos = std::min(start_pos + requested_page_size, all_results.size());
+        for (size_t i = start_pos; i < end_pos; ++i) {
+            paginated.results.push_back(std::move(all_results[i]));
+        }
+
+        paginated.pagination.has_next_page = (end_pos < all_results.size());
+    } else {
+        // Offset-based pagination
+        paginated.pagination.offset = requested_offset;
+
+        if (requested_offset < all_results.size()) {
+            size_t end_pos = std::min(requested_offset + requested_page_size,
+                                      all_results.size());
+            for (size_t i = requested_offset; i < end_pos; ++i) {
+                paginated.results.push_back(std::move(all_results[i]));
+            }
+            paginated.pagination.has_next_page = (end_pos < all_results.size());
+        } else {
+            paginated.pagination.has_next_page = false;
+        }
+    }
+
+    paginated.pagination.page_size = paginated.results.size();
+    return paginated;
 }
 
 IndexStatistics SearchEngine::getStats() const {

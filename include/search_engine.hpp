@@ -35,6 +35,10 @@ public:
     std::vector<SearchResult> search(const std::string& query,
                                      const SearchOptions& options = {});
     
+    // Paginated search — returns results with pagination metadata
+    PaginatedSearchResults searchPaginated(const std::string& query,
+                                           const SearchOptions& options = {});
+    
     // Overload for searching with specific ranker
     std::vector<SearchResult> search(const std::string& query,
                                      const std::string& ranker_name,

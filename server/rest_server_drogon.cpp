@@ -44,6 +44,10 @@ void handleSearch(const HttpRequestPtr& req,
     auto fuzzy_str = req->getParameter("fuzzy");
     auto max_edit_dist_str = req->getParameter("max_edit_distance");
     auto cache_str = req->getParameter("cache");
+    auto offset_str = req->getParameter("offset");
+    auto page_size_str = req->getParameter("page_size");
+    auto search_after_score_str = req->getParameter("search_after_score");
+    auto search_after_id_str = req->getParameter("search_after_id");
     
     Json::Value response;
     
@@ -61,6 +65,9 @@ void handleSearch(const HttpRequestPtr& req,
     }
     if (!max_results_str.empty()) {
         options.max_results = std::stoi(max_results_str);
+    }
+    if (!page_size_str.empty()) {
+        options.max_results = std::stoi(page_size_str);
     }
     if (!use_heap_str.empty()) {
         options.use_top_k_heap = (use_heap_str == "true" || use_heap_str == "1");
@@ -90,11 +97,21 @@ void handleSearch(const HttpRequestPtr& req,
         options.use_cache = !(cache_str == "false" || cache_str == "0");
     }
 
-    
-    auto results = g_engine->search(query, options);
+    // Pagination options
+    if (!offset_str.empty()) {
+        options.offset = std::stoul(offset_str);
+    }
+    if (!search_after_score_str.empty()) {
+        options.search_after_score = std::stod(search_after_score_str);
+    }
+    if (!search_after_id_str.empty()) {
+        options.search_after_id = std::stoull(search_after_id_str);
+    }
+
+    auto paginated = g_engine->searchPaginated(query, options);
     
     Json::Value resultsArray(Json::arrayValue);
-    for (const auto& result : results) {
+    for (const auto& result : paginated.results) {
         Json::Value item;
         item["score"] = result.score;
         item["document"]["id"] = (Json::UInt64)result.document.id;
@@ -121,7 +138,15 @@ void handleSearch(const HttpRequestPtr& req,
     }
     
     response["results"] = resultsArray;
-    response["total_results"] = (Json::UInt)results.size();
+    response["total_results"] = (Json::UInt)paginated.results.size();
+
+    // Pagination metadata
+    Json::Value pagination;
+    pagination["total_hits"] = (Json::UInt64)paginated.pagination.total_hits;
+    pagination["offset"] = (Json::UInt64)paginated.pagination.offset;
+    pagination["page_size"] = (Json::UInt64)paginated.pagination.page_size;
+    pagination["has_next_page"] = paginated.pagination.has_next_page;
+    response["pagination"] = pagination;
     
     auto resp = HttpResponse::newHttpJsonResponse(response);
     callback(resp);
