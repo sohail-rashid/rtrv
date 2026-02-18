@@ -43,6 +43,9 @@ public:
     // Statistics
     IndexStatistics getStats() const;
     CacheStatistics getCacheStats() const;
+
+    // List documents (for browsing)
+    std::vector<std::pair<uint64_t, Document>> getDocuments(size_t offset = 0, size_t limit = 10) const;
     void clearCache();
     void setCacheConfig(size_t max_entries, std::chrono::milliseconds ttl);
     

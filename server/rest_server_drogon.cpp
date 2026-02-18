@@ -141,6 +141,38 @@ void handleStats(const HttpRequestPtr&,
     callback(resp);
 }
 
+// List documents endpoint handler
+void handleListDocuments(const HttpRequestPtr& req,
+                         std::function<void(const HttpResponsePtr&)>&& callback) {
+    auto offset_str = req->getParameter("offset");
+    auto limit_str = req->getParameter("limit");
+
+    size_t offset = 0, limit = 10;
+    if (!offset_str.empty()) offset = std::stoul(offset_str);
+    if (!limit_str.empty()) limit = std::stoul(limit_str);
+    if (limit > 1000) limit = 1000;
+
+    auto docs = g_engine->getDocuments(offset, limit);
+    auto stats = g_engine->getStats();
+
+    Json::Value resultsArray(Json::arrayValue);
+    for (const auto& [id, doc] : docs) {
+        Json::Value item;
+        item["score"] = 0.0;
+        item["document"]["id"] = (Json::UInt64)id;
+        item["document"]["content"] = doc.getAllText();
+        resultsArray.append(item);
+    }
+
+    Json::Value response;
+    response["results"] = resultsArray;
+    response["total_results"] = (Json::UInt)docs.size();
+    response["total_documents"] = (Json::UInt)stats.total_documents;
+
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+}
+
 // Cache stats endpoint handler
 void handleCacheStats(const HttpRequestPtr&,
                       std::function<void(const HttpResponsePtr&)>&& callback) {
@@ -423,6 +455,7 @@ int main(int argc, char* argv[]) {
     // Register routes
     app().registerHandler("/search?q={query}", &handleSearch, {Get});
     app().registerHandler("/stats", &handleStats, {Get});
+    app().registerHandler("/documents", &handleListDocuments, {Get});
     app().registerHandler("/cache/stats", &handleCacheStats, {Get});
     app().registerHandler("/", [ui_root](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback) {
         if (ui_root.empty()) {

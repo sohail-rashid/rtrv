@@ -1,23 +1,25 @@
 # Rtrv Search Engine Servers
 
-This directory contains multiple REST API server implementations and an interactive CLI server for the Rtrv search engine, along with a web-based user interface.
+This directory contains REST API and interactive CLI server implementations for the Rtrv search engine, along with a glassmorphism-styled web UI.
 
 ## Server Implementations
 
 ### 1. Drogon REST Server (`rest_server_drogon.cpp`)
 
-High-performance async HTTP server using the Drogon framework.
+High-performance async HTTP server using the Drogon framework. Serves both the REST API and the web UI as static files.
 
 ```bash
-./rest_server_drogon [port]
+./rest_server_drogon [port]   # default port: 8080
 ```
 
 **Features:**
 - ✅ Production-ready async I/O
 - ✅ Built-in JSON handling (JsonCpp)
 - ✅ Multi-threaded event loop (4 threads)
-- ✅ Request/response logging
-- ✅ CORS middleware
+- ✅ Request/response logging with emoji indicators
+- ✅ CORS middleware (all origins, GET/POST/DELETE/OPTIONS)
+- ✅ Static file serving for the web UI
+- ✅ Auto-resolves UI root from multiple directory candidates
 - ⚡ Performance: ~50,000+ requests/second
 
 **Requirements:**
@@ -63,24 +65,28 @@ Command-line interface for manual search engine interaction.
 
 ## REST API Endpoints
 
-All REST servers expose the same API:
-
 ### Search
 ```http
-GET /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>
+GET /search?q=<query>
 ```
 
 **Parameters:**
-- `q` (required): Search query string
-- `algorithm` (optional): Ranking algorithm - `bm25` (default) or `tfidf`
-- `max_results` (optional): Maximum number of results to return (default: 10)
-- `use_top_k_heap` (optional): Use Top-K heap optimization - `true` (default) or `false`
-  - `true`: O(N log K) complexity with bounded priority queue
-  - `false`: O(N log N) complexity with full sorting
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `q` | Yes | — | Search query string |
+| `algorithm` | No | `bm25` | Ranking algorithm: `bm25` or `tfidf` |
+| `max_results` | No | `10` | Maximum number of results |
+| `use_top_k_heap` | No | `true` | Use Top-K heap (O(N log K)) vs full sort (O(N log N)) |
+| `highlight` | No | `false` | Enable snippet generation / highlighting |
+| `snippet_length` | No | — | Max length per snippet (chars) |
+| `num_snippets` | No | — | Number of snippets to return per result |
+| `fuzzy` | No | `false` | Enable fuzzy matching (edit-distance expansion) |
+| `max_edit_distance` | No | — | Max edit distance for fuzzy matching |
+| `cache` | No | `true` | Enable/disable query cache for this request |
 
 **Example:**
 ```bash
-curl "http://localhost:8080/search?q=machine+learning&algorithm=bm25&max_results=10&use_top_k_heap=true"
+curl "http://localhost:8080/search?q=machine+learning&algorithm=bm25&max_results=5&highlight=true&fuzzy=true"
 ```
 
 **Response:**
@@ -92,12 +98,59 @@ curl "http://localhost:8080/search?q=machine+learning&algorithm=bm25&max_results
       "document": {
         "id": 2,
         "content": "Machine learning is a branch of artificial intelligence..."
+      },
+      "snippets": [
+        "...branch of <b>artificial intelligence</b> that focuses on..."
+      ],
+      "expanded_terms": {
+        "learning": "learnings"
       }
     }
   ],
   "total_results": 5
 }
 ```
+
+> **Note:** `snippets` is only present when `highlight=true`. `expanded_terms` is only present when `fuzzy=true` and expansions were used.
+
+---
+
+### List Documents
+```http
+GET /documents?offset=<n>&limit=<n>
+```
+
+Browse indexed documents with pagination. Used by the web UI for empty searches.
+
+**Parameters:**
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `offset` | No | `0` | Number of documents to skip |
+| `limit` | No | `10` | Number of documents to return (max 1000) |
+
+**Example:**
+```bash
+curl "http://localhost:8080/documents?offset=0&limit=5"
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "score": 0.0,
+      "document": {
+        "id": 1,
+        "content": "Document content here..."
+      }
+    }
+  ],
+  "total_results": 5,
+  "total_documents": 50
+}
+```
+
+---
 
 ### Statistics
 ```http
@@ -113,6 +166,39 @@ GET /stats
 }
 ```
 
+---
+
+### Cache Statistics
+```http
+GET /cache/stats
+```
+
+**Response:**
+```json
+{
+  "hit_count": 120,
+  "miss_count": 45,
+  "eviction_count": 5,
+  "current_size": 30,
+  "max_size": 100,
+  "hit_rate": 0.727
+}
+```
+
+### Clear Cache
+```http
+DELETE /cache
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+---
+
 ### Index Document
 ```http
 POST /index
@@ -124,10 +210,28 @@ Content-Type: application/json
 }
 ```
 
+**Response:**
+```json
+{
+  "success": true,
+  "doc_id": 123
+}
+```
+
 ### Delete Document
 ```http
 DELETE /delete/<id>
 ```
+
+**Response:**
+```json
+{
+  "success": true,
+  "doc_id": 123
+}
+```
+
+---
 
 ### Save Snapshot
 ```http
@@ -135,6 +239,14 @@ POST /save
 Content-Type: application/json
 
 {
+  "filename": "snapshot.bin"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
   "filename": "snapshot.bin"
 }
 ```
@@ -149,25 +261,80 @@ Content-Type: application/json
 }
 ```
 
+**Response:**
+```json
+{
+  "success": true,
+  "filename": "snapshot.bin"
+}
+```
+
+---
+
+### Skip Pointer Management
+
+#### Rebuild All Skip Pointers
+```http
+POST /skip/rebuild
+```
+
+#### Rebuild Skip Pointers for a Specific Term
+```http
+POST /skip/rebuild/<term>
+```
+
+#### Get Skip Pointer Stats
+```http
+GET /skip/stats?term=<term>
+```
+
+**Response:**
+```json
+{
+  "term": "machine",
+  "postings_count": 15,
+  "skip_pointers_count": 3,
+  "skip_interval": 5,
+  "needs_rebuild": false
+}
+```
+
+---
+
+## Endpoint Summary
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Serve web UI |
+| `GET` | `/search?q=...` | Full-text search with ranking |
+| `GET` | `/documents?offset=&limit=` | Browse documents (paginated) |
+| `GET` | `/stats` | Index statistics |
+| `GET` | `/cache/stats` | Query cache statistics |
+| `DELETE` | `/cache` | Clear query cache |
+| `POST` | `/index` | Add a document |
+| `DELETE` | `/delete/{id}` | Remove a document |
+| `POST` | `/save` | Save index snapshot |
+| `POST` | `/load` | Load index snapshot |
+| `POST` | `/skip/rebuild` | Rebuild all skip pointers |
+| `POST` | `/skip/rebuild/{term}` | Rebuild skip pointers for one term |
+| `GET` | `/skip/stats?term=` | Skip pointer statistics |
+
 ---
 
 ## Web UI
 
-A browser-based interface for the search engine located in `ui/`.
+A glassmorphism-styled single-page dashboard located in `ui/`. Served directly by the Drogon server at the root URL.
 
+**Files:**
+- `index.html` — Dashboard layout with sidebar and content area
+- `style.css` — Glassmorphism theme with mesh-gradient background
+- `app.js` — Client-side search, index management, and view switching
 ### Running the Web UI
-
-The web UI is served directly by the Drogon server.
-
-**Prerequisites:**
-- A running Drogon REST API server
 
 **Quick Launch (Automated Script):**
 
-The easiest way to start everything is using the provided launch script:
-
+From the project root:
 ```bash
-cd server/ui
 ./launch_webui.sh
 ```
 
@@ -175,14 +342,11 @@ The script will:
 - ✅ Start the Drogon REST server
 - ✅ Check for port conflicts
 - ✅ Open your browser automatically
-- ✅ Display URLs and status
 - ✅ Handle graceful shutdown with Ctrl+C
 
 **Manual Setup:**
 
-If you prefer to start the server manually:
-
-1. **Start the REST API server (serves UI):**
+1. **Start the server:**
    ```bash
    cd build/server
    ./rest_server_drogon 8080
@@ -191,33 +355,39 @@ If you prefer to start the server manually:
    The server will automatically load `wikipedia_sample.json` and display:
    ```
    ✅ Loaded 50 documents from ../data/wikipedia_sample.json
-   === Search Engine REST Server (Drogon) ===
+   === Rtrv REST Server (Drogon) ===
    Server will listen on http://localhost:8080
    ```
 
-2. **Access in browser:**
+2. **Open in browser:**
    ```
-  http://localhost:8080
+   http://localhost:8080
    ```
-   
-   Or click the URL shown in the terminal output.
-
-**Quick Start (One-Liner):**
-```bash
-# Automated: Use the launch script (recommended)
-cd server/ui && ./launch_webui.sh
-
-# OR Manual: Start server directly
-cd build/server && ./rest_server_drogon 8080
-```
 
 ### Features
 
+**Search View:**
 - 🔍 Real-time search with instant results
 - ⚙️ Algorithm selection (BM25 or TF-IDF)
 - 📊 Configurable max results slider
-- 📈 Live statistics display
-- 🎨 Modern, responsive design
+- 🔤 Fuzzy matching and snippet highlighting
+- 📄 Empty search browses all documents via `/documents` endpoint
+
+**Index View:**
+- 📈 Live index statistics (document count, term count, avg doc length)
+- 💾 Cache monitoring (hit rate, hits, misses, evictions, size)
+- ➕ Add documents (ID + content form)
+- 🗑️ Delete documents by ID
+- 🧹 Clear query cache
+- 🔄 Auto-refresh stats every 15 seconds
+
+**Design:**
+- Glassmorphism UI with translucent glass panels and backdrop blur
+- Mesh-gradient background with violet accent color scheme
+- SVG logo (violet gradient rounded square with magnifying glass)
+- Inter font family via Google Fonts
+- Sidebar view switcher (Search / Index pill tabs)
+- Responsive layout with mobile breakpoints
 
 ### Configuration
 
@@ -229,36 +399,40 @@ const CONFIG = {
   requestTimeoutMs: 4000,
   enableFuzzy: true,
   enableHighlight: true,
-  defaultMaxResults: 10
+  defaultMaxResults: 10,
+  statsRefreshMs: 15000
 };
 ```
 
 **Available Settings:**
-- `apiBase`: URL of your REST API server (defaults to current origin)
-- `requestTimeoutMs`: Request timeout in milliseconds
-- `enableFuzzy`: Enable fuzzy matching on the server
-- `enableHighlight`: Enable snippets/highlighting on the server
-- `defaultMaxResults`: Default number of search results
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `apiBase` | `window.location.origin` | REST API server URL |
+| `requestTimeoutMs` | `4000` | Request timeout (ms) |
+| `enableFuzzy` | `true` | Enable fuzzy matching |
+| `enableHighlight` | `true` | Enable snippet highlighting |
+| `defaultMaxResults` | `10` | Default max search results |
+| `statsRefreshMs` | `15000` | Index view stats auto-refresh interval (ms) |
 
-**How app.js Works:**
-1. Runs in the browser (client-side JavaScript)
-2. Makes HTTP requests to the REST API server
-3. Dynamically updates the UI based on responses
-4. No server-side execution required for the JavaScript itself
+### Architecture
 
-**Architecture:**
 ```
-Browser (port 8080)          REST API Server (port 8080)
-┌─────────────────┐         ┌──────────────────────┐
-│  index.html     │         │   rest_server_drogon │
-│  style.css      │         │   (C++ backend)      │
-│  app.js         │────────▶│   /search, /stats    │
-│  (JavaScript)   │◀────────│   (JSON responses)   │
-└─────────────────┘         └──────────────────────┘
-     │                               │
-     │                               │
-     └── Drogon ──────────────────── SearchEngine
-       (static + API)              + Documents
+Browser (port 8080)               Drogon Server (port 8080)
+┌───────────────────────┐         ┌───────────────────────────┐
+│  index.html           │         │  rest_server_drogon.cpp   │
+│  style.css            │         │  (C++ backend, 4 threads) │
+│  app.js               │         │                           │
+│                       │  HTTP   │  Endpoints:               │
+│  Search View ─────────│────────▶│  /search, /documents      │
+│  Index View  ─────────│────────▶│  /stats, /cache/stats     │
+│                       │◀────────│  /index, /delete, /cache  │
+│  (glassmorphism UI)   │  JSON   │  /save, /load, /skip/*    │
+└───────────────────────┘         └───────────────────────────┘
+                                           │
+                                    SearchEngine
+                                   + InvertedIndex
+                                   + QueryCache
+                                   + SkipPointers
 ```
 
 ---
@@ -272,16 +446,16 @@ Browser (port 8080)          REST API Server (port 8080)
 - C++17 compatible compiler (GCC 9+, Clang 10+, MSVC 2019+)
 - Threads library
 
-**Optional (framework servers):**
+**Optional (Drogon server):**
 ```bash
 # macOS
-brew install drogon      # For rest_server_drogon
+brew install drogon
 
 # Ubuntu/Debian
-sudo apt install libdrogon-dev libjsoncpp-dev  # For rest_server_drogon
+sudo apt install libdrogon-dev libjsoncpp-dev
 
 # Fedora/RHEL
-sudo dnf install drogon-devel jsoncpp-devel    # For rest_server_drogon
+sudo dnf install drogon-devel jsoncpp-devel
 ```
 
 ### Build All Servers
@@ -289,16 +463,8 @@ sudo dnf install drogon-devel jsoncpp-devel    # For rest_server_drogon
 From the project root:
 
 ```bash
-# Create build directory
 mkdir -p build && cd build
-
-# Configure with CMake
 cmake ..
-
-# Build all available servers
-make
-
-# Or build with all CPU cores
 make -j$(nproc)
 ```
 
@@ -310,53 +476,39 @@ Executables will be in `build/server/`:
 
 ```bash
 cd build
-
-# Build only the interactive CLI
-make interactive_server
-
-# Build only Drogon server (requires Drogon)
-make rest_server_drogon
+make interactive_server     # CLI only
+make rest_server_drogon     # Drogon server only (requires Drogon)
 ```
 
 ### Rebuild After Changes
 
 ```bash
 cd build
+make -j$(nproc)
 
-# Force clean rebuild
-rm -rf *
-cmake ..
-make
+# Or force a clean rebuild
+rm -rf * && cmake .. && make -j$(nproc)
 ```
 
 ### Build Configuration Options
 
 ```bash
-# Debug build with symbols
-cmake -DCMAKE_BUILD_TYPE=Debug ..
-make
-
-# Release build with optimizations
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make
-
-# Specify compiler
-cmake -DCMAKE_CXX_COMPILER=clang++ ..
-make
+cmake -DCMAKE_BUILD_TYPE=Debug ..        # Debug build with symbols
+cmake -DCMAKE_BUILD_TYPE=Release ..      # Release build with optimizations
+cmake -DCMAKE_CXX_COMPILER=clang++ ..   # Specify compiler
 ```
 
 ### Verify Build
 
 ```bash
 cd build/server
+ls -lh rest_server_drogon interactive_server
 
-# Check if servers were built
-ls -lh rest_*
-
-# Test run (should show usage or start server)
-./rest_server_drogon --help 2>/dev/null || ./rest_server_drogon 8080 &
+# Quick smoke test
+./rest_server_drogon 8080 &
 sleep 1
 curl http://localhost:8080/stats
+curl "http://localhost:8080/documents?limit=2"
 pkill rest_server_drogon
 ```
 
@@ -364,7 +516,7 @@ pkill rest_server_drogon
 
 ## Quick Start
 
-### 1. Start a REST Server
+### 1. Start the Server
 ```bash
 cd build/server
 ./rest_server_drogon 8080
@@ -372,73 +524,73 @@ cd build/server
 
 ### 2. Test with curl
 ```bash
-# Search
-curl "http://localhost:8080/search?q=machine+learning"
+# Search with fuzzy + highlighting
+curl "http://localhost:8080/search?q=machine+learning&fuzzy=true&highlight=true"
+
+# Browse documents
+curl "http://localhost:8080/documents?offset=0&limit=5"
 
 # Get stats
 curl "http://localhost:8080/stats"
+
+# Get cache stats
+curl "http://localhost:8080/cache/stats"
 
 # Index a document
 curl -X POST http://localhost:8080/index \
   -H "Content-Type: application/json" \
   -d '{"id": 100, "content": "New document content"}'
+
+# Delete a document
+curl -X DELETE http://localhost:8080/delete/100
+
+# Clear cache
+curl -X DELETE http://localhost:8080/cache
 ```
 
 ### 3. Use the Web UI
 ```bash
-cd server/ui
 ./launch_webui.sh
-# Open http://localhost:8080 in browser
+# Or open http://localhost:8080 after starting the server
 ```
-
----
-
-## Performance Comparison
-
-| Server | Throughput | Latency (p50) | Dependencies | Best For |
-|--------|------------|---------------|--------------|----------|
-| **Raw Socket** | ~5k req/s | ~2ms | None | Learning, embedded |
-| **Drogon** | ~50k+ req/s | ~0.5ms | Drogon, JsonCpp | Production, high load |
-
-*Benchmarks run on Apple M1 Pro, 10 concurrent connections*
 
 ---
 
 ## Logging Format
 
-All servers use consistent logging:
+All servers use consistent logging with emoji indicators:
 
 **Incoming Request:**
 ```
-📥 [2025-12-16 18:45:23.456] [127.0.0.1] GET /search?q=test
+📥 [127.0.0.1] GET /search?q=test
 ```
 
 **Response:**
 ```
-✅ [2025-12-16 18:45:23.458] [127.0.0.1] GET /search → 200  (Success)
-⚠️ [2025-12-16 18:45:24.123] [127.0.0.1] POST /index → 400 (Client Error)
-❌ [2025-12-16 18:45:25.789] [127.0.0.1] GET /stats → 500  (Server Error)
+✅ [127.0.0.1] GET /search → 200
+⚠️ [127.0.0.1] POST /index → 400
+❌ [127.0.0.1] GET /stats → 500
 ```
 
 ---
 
 ## Sample Data
 
-All REST servers automatically load sample data from `data/wikipedia_sample.json` (JSONL format) on startup:
+The server automatically loads sample data from `data/wikipedia_sample.json` (JSONL format) on startup:
 - 50 computer science articles
 - Topics: AI, ML, algorithms, systems, web technologies
 - JSONL format: One JSON object per line with `id`, `title`, `content`, `category` fields
 
-Servers try multiple paths automatically:
-- `../data/wikipedia_sample.json` (when running from `build/server/`)
-- `../../data/wikipedia_sample.json` (when running from `build/`)
-- `data/wikipedia_sample.json` (when running from project root)
+The server tries multiple paths automatically:
+- `../data/wikipedia_sample.json` (running from `build/server/`)
+- `../../data/wikipedia_sample.json` (running from `build/`)
+- `data/wikipedia_sample.json` (running from project root)
 
 To use your own data:
-1. Create JSONL file with documents (one JSON object per line)
+1. Create a JSONL file with documents (one JSON object per line)
 2. Place in `data/` directory
 3. Update file path in server source code or pass via command line
-4. Rebuild: `cd build && make <server_name>`
+4. Rebuild: `cd build && make -j$(nproc)`
 
 **Example JSONL format:**
 ```json
@@ -452,42 +604,32 @@ To use your own data:
 
 ### Port Already in Use
 ```bash
-# Check what's using the port
-lsof -i :8080
-
-# Use a different port
-./rest_server_drogon 8081
+lsof -i :8080              # Check what's using the port
+./rest_server_drogon 8081   # Use a different port
 ```
 
 ### CORS Errors in Web UI
-All servers have CORS enabled by default. If issues persist:
+CORS is enabled by default for all origins. If issues persist:
 1. Check browser console for specific error
-2. Verify `API_BASE` in `app.js` matches server URL
+2. Verify `apiBase` in `app.js` matches server URL
 3. Try accessing API directly with curl first
 
 ### Server Not Found During Build
 ```bash
-# Install missing frameworks
-brew install drogon  # For rest_server_drogon
+brew install drogon  # macOS — installs Drogon + JsonCpp
 ```
 
 ### Can't Load Sample Data
-Ensure you run servers from the build directory:
+Run the server from the correct directory:
 ```bash
 cd build/server
-./rest_server_drogon  # Will load ../data/wikipedia_sample.json
-# Or use: ./interactive_server
+./rest_server_drogon 8080   # Will find ../data/wikipedia_sample.json
 ```
 
+### Web UI Not Loading
+The server auto-resolves the UI directory by checking multiple paths. If the UI doesn't load, ensure `server/ui/index.html` exists relative to your working directory.
+
 ---
-
-## Next Steps
-
-1. **Load More Data**: Use `batch_indexing` tool to load custom datasets
-2. **Benchmark**: Test performance with your workload
-3. **Customize**: Modify algorithms, add endpoints, enhance UI
-4. **Deploy**: Use Drogon server with Nginx for production
-5. **Scale**: Add load balancing, caching, and replication
 
 ## License
 
