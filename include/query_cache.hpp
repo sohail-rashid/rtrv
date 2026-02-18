@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 struct QueryCacheKey {
     std::string normalized_query;
@@ -67,4 +67,4 @@ private:
     std::atomic<size_t> eviction_count_;
 };
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

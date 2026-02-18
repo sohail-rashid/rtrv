@@ -4,7 +4,7 @@
 #include <unordered_set>
 #include <sstream>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 // ==================== Public API ====================
 
@@ -251,4 +251,4 @@ bool SnippetExtractor::isWordChar(char c) {
     return std::isalnum(static_cast<unsigned char>(c)) || c == '\'';
 }
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

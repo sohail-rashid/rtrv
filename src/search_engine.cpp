@@ -34,7 +34,7 @@ size_t hashCombine(size_t seed, size_t value) {
     return seed ^ (value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2));
 }
 
-size_t hashSearchOptions(const search_engine::SearchOptions& options) {
+size_t hashSearchOptions(const rtrv_search_engine::SearchOptions& options) {
     size_t seed = 0;
     seed = hashCombine(seed, std::hash<std::string>{}(options.ranker_name));
     seed = hashCombine(seed, static_cast<size_t>(options.algorithm));
@@ -53,7 +53,7 @@ size_t hashSearchOptions(const search_engine::SearchOptions& options) {
 
 }
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 SearchEngine::SearchEngine()
     : tokenizer_(std::make_unique<Tokenizer>()),

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "query_parser.hpp"
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 class QueryParserTest : public ::testing::Test {
 protected:

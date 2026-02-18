@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 class SearchEngine;
 

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include "top_k_heap.hpp"
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 class TopKHeapTest : public ::testing::Test {
 protected:

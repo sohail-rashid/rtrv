@@ -9,7 +9,7 @@
 #include <vector>
 #include <filesystem>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 using namespace drogon;
 
 // Global search engine instance
@@ -363,7 +363,7 @@ int main(int argc, char* argv[]) {
         std::cerr << "⚠️  Warning: Could not load wikipedia_sample.json from any location, starting with empty index\n";
     }
     
-    std::cout << "=== Search Engine REST Server (Drogon) ===\n";
+    std::cout << "=== Rtrv REST Server (Drogon) ===\n";
     std::cout << "Server will listen on http://localhost:" << port << "\n";
     std::cout << "Endpoints:\n";
     std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>&cache=<true|false>\n";

@@ -6,7 +6,7 @@
 #include <sstream>
 #include <iostream>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 // Helper function to generate test text of varying sizes
 std::string generateTestText(size_t word_count) {

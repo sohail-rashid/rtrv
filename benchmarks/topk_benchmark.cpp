@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <fstream>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 // Helper to generate random documents
 std::vector<std::pair<std::string, std::string>> generateRandomDocuments(size_t count) {

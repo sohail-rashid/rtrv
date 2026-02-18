@@ -1,6 +1,6 @@
-# Search Engine Web UI
+# Rtrv Web UI
 
-Modern, responsive web interface for the C++ Search Engine with advanced features and performance monitoring.
+Modern, responsive web interface for the C++ Rtrv search engine with advanced features and performance monitoring.
 
 ## Features
 
@@ -207,4 +207,4 @@ Built with:
 
 ## License
 
-Part of the C++ Search Engine project.
+Part of the C++ Rtrv search engine project.

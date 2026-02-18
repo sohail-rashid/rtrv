@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <algorithm>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 namespace {
 
@@ -233,4 +233,4 @@ Document DocumentLoader::createDocument(const std::unordered_map<std::string, st
     return doc;
 }
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

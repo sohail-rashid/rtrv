@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 Posting::Posting(uint64_t doc_id, uint32_t term_frequency)
     : doc_id(doc_id), term_frequency(term_frequency) {

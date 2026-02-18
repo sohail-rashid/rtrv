@@ -3,7 +3,7 @@
 #include <cstdio>
 #include <fstream>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 class SearchEngineTest : public ::testing::Test {
 protected:

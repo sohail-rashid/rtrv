@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 /**
  * Search options
@@ -76,4 +76,4 @@ struct CacheStatistics {
     double hit_rate = 0.0;
 };
 
-} // namespace search_engine
+} // namespace rtrv_search_engine

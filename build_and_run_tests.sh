@@ -10,7 +10,7 @@ show_help() {
     cat << EOF
 Usage: ./build_and_run_tests.sh [MODE]
 
-Builds the SearchDB project and runs all tests.
+Builds the Rtrv project and runs all tests.
 
 MODES:
     quick       Incremental build (faster, default)
@@ -47,7 +47,7 @@ if [ "$BUILD_TYPE" != "quick" ] && [ "$BUILD_TYPE" != "full" ]; then
 fi
 
 echo "=========================================="
-echo "  SearchDB - Build and Test Script"
+echo "  Rtrv - Build and Test Script"
 echo "  Mode: ${BUILD_TYPE}"
 echo "=========================================="
 echo ""

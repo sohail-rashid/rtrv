@@ -13,7 +13,7 @@
     #include <arm_neon.h>  // ARM NEON
 #endif
 
-namespace search_engine {
+namespace rtrv_search_engine {
 
 Tokenizer::Tokenizer()
     : lowercase_enabled_(true),

@@ -3,7 +3,7 @@
 #include <iostream>
 #include <chrono>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 int main(int argc, char* argv[]) {
     std::string corpus_file = "../data/wikipedia_sample.json";

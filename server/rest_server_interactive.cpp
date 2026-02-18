@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <vector>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 // Command handler type
 using CommandHandler = std::function<void(SearchEngine&, const std::string&)>;

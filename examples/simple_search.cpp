@@ -1,7 +1,7 @@
 #include "search_engine.hpp"
 #include <iostream>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 int main() {
     SearchEngine engine;

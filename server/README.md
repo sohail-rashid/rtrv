@@ -1,6 +1,6 @@
-# Search Engine Servers
+# Rtrv Search Engine Servers
 
-This directory contains multiple REST API server implementations and an interactive CLI server for the search engine, along with a web-based user interface.
+This directory contains multiple REST API server implementations and an interactive CLI server for the Rtrv search engine, along with a web-based user interface.
 
 ## Server Implementations
 

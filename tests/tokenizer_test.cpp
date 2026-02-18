@@ -3,7 +3,7 @@
 #include <fstream>
 #include <sstream>
 
-using namespace search_engine;
+using namespace rtrv_search_engine;
 
 // Helper function to load stopwords from file
 #include <unordered_set>
