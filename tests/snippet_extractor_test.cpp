@@ -242,8 +242,8 @@ TEST_F(SearchEngineSnippetTest, SearchWithSnippetsEnabled) {
             any_snippets = true;
             // Verify highlights are present
             for (const auto& s : r.snippets) {
-                // Should contain at least one <em> tag
-                EXPECT_TRUE(s.find("<em>") != std::string::npos)
+                // Should contain at least one <mark> tag
+                EXPECT_TRUE(s.find("<mark>") != std::string::npos)
                     << "Snippet should contain highlight: " << s;
             }
         }
@@ -259,7 +259,7 @@ TEST_F(SearchEngineSnippetTest, SearchSnippetsContainQueryTerms) {
 
     for (const auto& r : results) {
         for (const auto& s : r.snippets) {
-            EXPECT_NE(s.find("<em>fox</em>"), std::string::npos)
+            EXPECT_NE(s.find("<mark>fox</mark>"), std::string::npos)
                 << "Snippet should highlight 'fox': " << s;
         }
     }
@@ -280,7 +280,7 @@ TEST_F(SearchEngineSnippetTest, SearchSnippetsCustomOptions) {
         for (const auto& s : r.snippets) {
             EXPECT_NE(s.find("[HL]"), std::string::npos)
                 << "Snippet should use custom highlight tags: " << s;
-            EXPECT_EQ(s.find("<em>"), std::string::npos)
+            EXPECT_EQ(s.find("<mark>"), std::string::npos)
                 << "Snippet should NOT contain default tags: " << s;
         }
     }
@@ -310,16 +310,16 @@ TEST_F(SnippetExtractorTest, HighlightSingleCharacterWord) {
     std::string text = "I am a test";
     std::vector<std::string> terms = {"a"};
     std::string result = extractor.highlightTerms(text, terms);
-    EXPECT_NE(result.find("<em>a</em>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>a</mark>"), std::string::npos);
 }
 
 TEST_F(SnippetExtractorTest, HighlightWithPunctuation) {
     std::string text = "Hello, world! Find the fox.";
     std::vector<std::string> terms = {"fox"};
     std::string result = extractor.highlightTerms(text, terms);
-    EXPECT_NE(result.find("<em>fox</em>"), std::string::npos);
+    EXPECT_NE(result.find("<mark>fox</mark>"), std::string::npos);
     // Punctuation should be preserved around the highlight
-    EXPECT_NE(result.find("<em>fox</em>."), std::string::npos);
+    EXPECT_NE(result.find("<mark>fox</mark>."), std::string::npos);
 }
 
 TEST_F(SnippetExtractorTest, SnippetVeryShortMaxLength) {
@@ -342,7 +342,7 @@ TEST_F(SnippetExtractorTest, SnippetAllWordsMatch) {
     // Count highlights
     size_t count = 0;
     size_t pos = 0;
-    while ((pos = snippets[0].find("<em>fox</em>", pos)) != std::string::npos) {
+    while ((pos = snippets[0].find("<mark>fox</mark>", pos)) != std::string::npos) {
         ++count;
         pos += 1;
     }

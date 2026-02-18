@@ -187,6 +187,40 @@ TEST_F(SearchEngineTest, Statistics) {
     EXPECT_LE(stats2.avg_doc_length, 5.0);
 }
 
+TEST_F(SearchEngineTest, QueryCacheIntegration) {
+    Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "cache test content"}}};
+    engine.indexDocument(doc1);
+
+    SearchOptions options;
+    options.use_cache = true;
+
+    auto stats_before = engine.getCacheStats();
+    EXPECT_EQ(stats_before.current_size, 0u);
+
+    auto results1 = engine.search("cache test", options);
+    EXPECT_FALSE(results1.empty());
+
+    auto stats_after_first = engine.getCacheStats();
+    EXPECT_EQ(stats_after_first.current_size, 1u);
+    EXPECT_EQ(stats_after_first.miss_count, stats_before.miss_count + 1);
+
+    auto results2 = engine.search("cache test", options);
+    EXPECT_FALSE(results2.empty());
+
+    auto stats_after_second = engine.getCacheStats();
+    EXPECT_GE(stats_after_second.hit_count, stats_after_first.hit_count + 1);
+
+    Document doc2{0, std::unordered_map<std::string, std::string>{{"content", "another cache test document"}}};
+    engine.indexDocument(doc2);
+
+    auto stats_after_invalidate = engine.getCacheStats();
+    EXPECT_EQ(stats_after_invalidate.current_size, 0u);
+
+    engine.search("cache test", options);
+    auto stats_after_third = engine.getCacheStats();
+    EXPECT_GE(stats_after_third.miss_count, stats_after_second.miss_count + 1);
+}
+
 TEST_F(SearchEngineTest, SaveSnapshot) {
     // Index some documents
     Document doc1{0, std::unordered_map<std::string, std::string>{{"content", "first document content"}, {"author", "Alice"}}};

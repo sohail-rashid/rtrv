@@ -2,6 +2,56 @@
 #include "persistence.hpp"
 #include "top_k_heap.hpp"
 #include "snippet_extractor.hpp"
+#include <cctype>
+
+namespace {
+
+std::string normalizeQuery(const std::string& query) {
+    std::string normalized;
+    normalized.reserve(query.size());
+
+    bool in_space = false;
+    for (unsigned char ch : query) {
+        if (std::isspace(ch)) {
+            if (!normalized.empty() && !in_space) {
+                normalized.push_back(' ');
+                in_space = true;
+            }
+            continue;
+        }
+        normalized.push_back(static_cast<char>(std::tolower(ch)));
+        in_space = false;
+    }
+
+    if (!normalized.empty() && normalized.back() == ' ') {
+        normalized.pop_back();
+    }
+
+    return normalized;
+}
+
+size_t hashCombine(size_t seed, size_t value) {
+    return seed ^ (value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2));
+}
+
+size_t hashSearchOptions(const search_engine::SearchOptions& options) {
+    size_t seed = 0;
+    seed = hashCombine(seed, std::hash<std::string>{}(options.ranker_name));
+    seed = hashCombine(seed, static_cast<size_t>(options.algorithm));
+    seed = hashCombine(seed, std::hash<size_t>{}(options.max_results));
+    seed = hashCombine(seed, std::hash<bool>{}(options.explain_scores));
+    seed = hashCombine(seed, std::hash<bool>{}(options.use_top_k_heap));
+    seed = hashCombine(seed, std::hash<bool>{}(options.generate_snippets));
+    seed = hashCombine(seed, std::hash<size_t>{}(options.snippet_options.max_snippet_length));
+    seed = hashCombine(seed, std::hash<size_t>{}(options.snippet_options.num_snippets));
+    seed = hashCombine(seed, std::hash<std::string>{}(options.snippet_options.highlight_open));
+    seed = hashCombine(seed, std::hash<std::string>{}(options.snippet_options.highlight_close));
+    seed = hashCombine(seed, std::hash<bool>{}(options.fuzzy_enabled));
+    seed = hashCombine(seed, std::hash<uint32_t>{}(options.max_edit_distance));
+    return seed;
+}
+
+}
 
 namespace search_engine {
 
@@ -21,7 +71,9 @@ SearchEngine::~SearchEngine() = default;
 
 uint64_t SearchEngine::indexDocument(const Document& doc) {
     std::unique_lock lock(mutex_);
-    return indexDocumentInternal(doc);
+    const auto doc_id = indexDocumentInternal(doc);
+    query_cache_.clear();
+    return doc_id;
 }
 
 uint64_t SearchEngine::indexDocumentInternal(const Document& doc) {
@@ -53,10 +105,11 @@ uint64_t SearchEngine::indexDocumentInternal(const Document& doc) {
 }
 
 void SearchEngine::indexDocuments(const std::vector<Document>& docs) {
-    // batch indexing
+    std::unique_lock lock(mutex_);
     for (const auto& doc : docs) {
-        indexDocument(doc);
+        indexDocumentInternal(doc);
     }
+    query_cache_.clear();
 }
 
 bool SearchEngine::updateDocument(uint64_t doc_id, const Document& doc) {
@@ -77,6 +130,7 @@ bool SearchEngine::updateDocument(uint64_t doc_id, const Document& doc) {
     // Re-index with same ID (using internal method — lock already held)
     indexDocumentInternal(updated_doc);
     
+    query_cache_.clear();
     return true;
 }
 
@@ -95,6 +149,7 @@ bool SearchEngine::deleteDocument(uint64_t doc_id) {
     // Remove from document store
     documents_.erase(it);
     
+    query_cache_.clear();
     return true;
 }
 
@@ -103,6 +158,18 @@ std::vector<SearchResult> SearchEngine::search(const std::string& query,
     std::shared_lock lock(mutex_);
     
     std::vector<SearchResult> results;
+    const bool use_cache = options.use_cache;
+    QueryCacheKey cache_key;
+
+    if (use_cache) {
+        cache_key.normalized_query = normalizeQuery(query);
+        cache_key.options_hash = hashSearchOptions(options);
+
+        if (!cache_key.normalized_query.empty() &&
+            query_cache_.get(cache_key, &results)) {
+            return results;
+        }
+    }
     
     // Extract query terms
     auto query_terms = query_parser_->extractTerms(query);
@@ -314,6 +381,10 @@ std::vector<SearchResult> SearchEngine::search(const std::string& query,
         }
     }
     
+    if (use_cache && !cache_key.normalized_query.empty()) {
+        query_cache_.put(cache_key, results);
+    }
+
     return results;
 }
 
@@ -338,6 +409,19 @@ IndexStatistics SearchEngine::getStats() const {
     return stats;
 }
 
+CacheStatistics SearchEngine::getCacheStats() const {
+    return query_cache_.getStats();
+}
+
+void SearchEngine::clearCache() {
+    query_cache_.clear();
+}
+
+void SearchEngine::setCacheConfig(size_t max_entries, std::chrono::milliseconds ttl) {
+    query_cache_.setMaxEntries(max_entries);
+    query_cache_.setTtl(ttl);
+}
+
 bool SearchEngine::saveSnapshot(const std::string& filepath) {
     std::shared_lock lock(mutex_);
     return Persistence::save(*this, filepath);
@@ -345,7 +429,11 @@ bool SearchEngine::saveSnapshot(const std::string& filepath) {
 
 bool SearchEngine::loadSnapshot(const std::string& filepath) {
     std::unique_lock lock(mutex_);
-    return Persistence::load(*this, filepath);
+    const bool loaded = Persistence::load(*this, filepath);
+    if (loaded) {
+        query_cache_.clear();
+    }
+    return loaded;
 }
 
 // Search overload with specific ranker name
