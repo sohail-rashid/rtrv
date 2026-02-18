@@ -28,6 +28,7 @@ add_library(search_engine
     src/persistence.cpp
     src/snippet_extractor.cpp
     src/fuzzy_search.cpp
+    src/query_cache.cpp
 )
 
 target_include_directories(search_engine PUBLIC include)

@@ -43,6 +43,7 @@ void handleSearch(const HttpRequestPtr& req,
     auto num_snippets_str = req->getParameter("num_snippets");
     auto fuzzy_str = req->getParameter("fuzzy");
     auto max_edit_dist_str = req->getParameter("max_edit_distance");
+    auto cache_str = req->getParameter("cache");
     
     Json::Value response;
     
@@ -82,6 +83,11 @@ void handleSearch(const HttpRequestPtr& req,
     }
     if (!max_edit_dist_str.empty()) {
         options.max_edit_distance = static_cast<uint32_t>(std::stoul(max_edit_dist_str));
+    }
+
+    // Cache options
+    if (!cache_str.empty()) {
+        options.use_cache = !(cache_str == "false" || cache_str == "0");
     }
 
     
@@ -131,6 +137,35 @@ void handleStats(const HttpRequestPtr&,
     response["total_terms"] = (Json::UInt)stats.total_terms;
     response["avg_doc_length"] = stats.avg_doc_length;
     
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+}
+
+// Cache stats endpoint handler
+void handleCacheStats(const HttpRequestPtr&,
+                      std::function<void(const HttpResponsePtr&)>&& callback) {
+    auto stats = g_engine->getCacheStats();
+
+    Json::Value response;
+    response["hit_count"] = (Json::UInt64)stats.hit_count;
+    response["miss_count"] = (Json::UInt64)stats.miss_count;
+    response["eviction_count"] = (Json::UInt64)stats.eviction_count;
+    response["current_size"] = (Json::UInt64)stats.current_size;
+    response["max_size"] = (Json::UInt64)stats.max_size;
+    response["hit_rate"] = stats.hit_rate;
+
+    auto resp = HttpResponse::newHttpJsonResponse(response);
+    callback(resp);
+}
+
+// Cache clear endpoint handler
+void handleCacheClear(const HttpRequestPtr&,
+                      std::function<void(const HttpResponsePtr&)>&& callback) {
+    g_engine->clearCache();
+
+    Json::Value response;
+    response["success"] = true;
+
     auto resp = HttpResponse::newHttpJsonResponse(response);
     callback(resp);
 }
@@ -331,8 +366,10 @@ int main(int argc, char* argv[]) {
     std::cout << "=== Search Engine REST Server (Drogon) ===\n";
     std::cout << "Server will listen on http://localhost:" << port << "\n";
     std::cout << "Endpoints:\n";
-    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>\n";
+    std::cout << "  GET    /search?q=<query>&algorithm=<bm25|tfidf>&max_results=<n>&use_top_k_heap=<true|false>&cache=<true|false>\n";
     std::cout << "  GET    /stats\n";
+    std::cout << "  GET    /cache/stats\n";
+    std::cout << "  DELETE /cache\n";
     std::cout << "  POST   /index - body: {\"id\": number, \"content\": \"text\"}\n";
     std::cout << "  DELETE /delete/<id>\n";
     std::cout << "  POST   /save - body: {\"filename\": \"path\"}\n";
@@ -386,6 +423,7 @@ int main(int argc, char* argv[]) {
     // Register routes
     app().registerHandler("/search?q={query}", &handleSearch, {Get});
     app().registerHandler("/stats", &handleStats, {Get});
+    app().registerHandler("/cache/stats", &handleCacheStats, {Get});
     app().registerHandler("/", [ui_root](const HttpRequestPtr&, std::function<void(const HttpResponsePtr&)>&& callback) {
         if (ui_root.empty()) {
             auto resp = HttpResponse::newHttpResponse();
@@ -398,6 +436,7 @@ int main(int argc, char* argv[]) {
     }, {Get});
     app().registerHandler("/index", &handleIndex, {Post});
     app().registerHandler("/delete/{id}", &handleDelete, {Delete});
+    app().registerHandler("/cache", &handleCacheClear, {Delete});
     app().registerHandler("/save", &handleSave, {Post});
     app().registerHandler("/load", &handleLoad, {Post});
     app().registerHandler("/skip/rebuild", 

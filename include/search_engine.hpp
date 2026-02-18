@@ -7,63 +7,15 @@
 #include "query_parser.hpp"
 #include "snippet_extractor.hpp"
 #include "fuzzy_search.hpp"
+#include "query_cache.hpp"
+#include "search_types.hpp"
+#include <chrono>
 #include <string>
 #include <vector>
 #include <memory>
 #include <shared_mutex>
 
 namespace search_engine {
-
-/**
- * Search options
- */
-struct SearchOptions {
-    std::string ranker_name = "";  // Empty = use default ranker
-    size_t max_results = 10;
-    bool explain_scores = false;
-    bool use_top_k_heap = true;  // Use bounded priority queue for Top-K retrieval
-    
-    // Snippet / highlighting options
-    bool generate_snippets = false;      // Enable snippet generation
-    SnippetOptions snippet_options;       // Snippet configuration
-    
-    // Fuzzy search options
-    bool fuzzy_enabled = false;           // Enable fuzzy matching for typo tolerance
-    uint32_t max_edit_distance = 0;       // 0 = auto (based on term length)
-    
-    // Deprecated: Use ranker_name instead
-    enum RankingAlgorithm { TF_IDF, BM25 };
-    RankingAlgorithm algorithm = BM25;  // For backward compatibility
-};
-
-/**
- * Search result
- */
-struct SearchResult {
-    Document document;
-    double score;
-    std::string explanation;              // Optional score breakdown
-    std::vector<std::string> snippets;    // Highlighted snippets (populated when generate_snippets=true)
-    std::unordered_map<std::string, std::string> expanded_terms;  // Fuzzy: original -> corrected term
-    
-    // Comparison operators for sorting and heap operations
-    bool operator>(const SearchResult& other) const {
-        return score > other.score;  // Higher scores are "greater"
-    }
-    
-    bool operator<(const SearchResult& other) const {
-        return score < other.score;
-    }
-};
-
-/**
- * Index statistics
- */
-struct IndexStatistics {
-    size_t total_documents;
-    size_t total_terms;
-    double avg_doc_length;
-};
 
 /**
  * Main search engine API with plugin architecture for rankers
@@ -90,6 +42,9 @@ public:
     
     // Statistics
     IndexStatistics getStats() const;
+    CacheStatistics getCacheStats() const;
+    void clearCache();
+    void setCacheConfig(size_t max_entries, std::chrono::milliseconds ttl);
     
     // Persistence
     bool saveSnapshot(const std::string& filepath);
@@ -139,6 +94,7 @@ private:
     std::unique_ptr<RankerRegistry> ranker_registry_;
     SnippetExtractor snippet_extractor_;
     FuzzySearch fuzzy_search_;
+    QueryCache query_cache_;
     std::unordered_map<uint64_t, Document> documents_;
     uint64_t next_doc_id_;
     mutable std::shared_mutex mutex_;  // Thread safety for documents_ and next_doc_id_
